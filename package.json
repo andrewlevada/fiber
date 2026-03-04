@@ -1,0 +1,68 @@
+{
+  "name": "fiber-extension",
+  "version": "0.1.0",
+  "description": "Chrome extension framework that creates the illusion of a single program",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite/plugin.d.ts",
+      "import": "./dist/vite/plugin.js"
+    },
+    "./runtime/ext": {
+      "types": "./dist/runtime/ext.d.ts",
+      "import": "./dist/runtime/ext.js"
+    },
+    "./runtime/rpc": {
+      "types": "./dist/runtime/rpc.d.ts",
+      "import": "./dist/runtime/rpc.js"
+    },
+    "./runtime/background": {
+      "types": "./dist/runtime/background.d.ts",
+      "import": "./dist/runtime/background.js"
+    },
+    "./runtime/overlay": {
+      "types": "./dist/runtime/overlay.d.ts",
+      "import": "./dist/runtime/overlay.js"
+    },
+    "./runtime/hmr": {
+      "types": "./dist/runtime/hmr.d.ts",
+      "import": "./dist/runtime/hmr.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "chrome-types": "^0.1.327",
+    "lit": "^3.3.2",
+    "typescript": "^5.7.0",
+    "vite": "^7.3.1"
+  },
+  "peerDependencies": {
+    "lit": "^3.0.0",
+    "vite": "^6.0.0 || ^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "lit": {
+      "optional": true
+    },
+    "vite": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "chrome-extension",
+    "vite",
+    "typescript",
+    "framework"
+  ],
+  "license": "MIT"
+}
