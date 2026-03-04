@@ -53,7 +53,7 @@ Run:
 
 ```bash
 # Development (with HMR)
-FIBER_DEV=true vite build
+vite dev
 
 # Production
 vite build
@@ -119,7 +119,7 @@ overlay.detach();
 
 ### HMR in Development
 
-Run with `FIBER_DEV=true` for hot module replacement. Changes to your code trigger automatic reload without losing extension state.
+Run with `vite dev` for hot module replacement. Changes to your code trigger automatic reload without losing extension state.
 
 ## License
 

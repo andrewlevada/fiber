@@ -2,10 +2,11 @@
  * Vite Plugin for Fiber Extension
  *
  * Orchestrates the build process for Chrome extensions.
- * Dev mode uses `vite build --watch` since Chrome loads extensions from disk.
+ * Dev mode: `vite dev` - builds to disk with esbuild, uses WebSocket for HMR.
+ * Prod mode: `vite build` - standard Rollup build with esbuild post-processing.
  */
 
-import type { Plugin, ResolvedConfig } from 'vite';
+import type { Plugin, ResolvedConfig, ViteDevServer } from 'vite';
 import path from 'path';
 import { build as esbuild } from 'esbuild';
 
@@ -139,6 +140,91 @@ function buildManifest(partial: Partial<ManifestV3>, isDev: boolean): ManifestV3
 }
 
 // ============================================================================
+// Entry Point Generators
+// ============================================================================
+
+/**
+ * Generate content script entry code.
+ * @param isDev - Whether in dev mode (includes HMR init)
+ * @param devServerPort - Port for HMR WebSocket
+ */
+function generateContentEntry(isDev: boolean, devServerPort: number): string {
+  const appPath = path.resolve('src/app.ts').replace(/\\/g, '/');
+  const hmrInit = isDev
+    ? `import { initHmr } from 'fiber-extension/runtime/hmr';\ninitHmr('ws://localhost:${devServerPort}');`
+    : '';
+  return `${hmrInit}\nimport '${appPath}';`;
+}
+
+/**
+ * Generate background script entry code.
+ * @param isDev - Whether in dev mode (includes HMR handler)
+ */
+function generateBackgroundEntry(isDev: boolean): string {
+  const hmrHandler = isDev
+    ? `
+// HMR: Listen for reload requests from content scripts
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg.type === 'fiber:hmr-reload' && sender.tab?.id) {
+    chrome.scripting.executeScript({
+      target: { tabId: sender.tab.id },
+      files: ['content.js'],
+    });
+  }
+});`
+    : '';
+  return `import 'fiber-extension/runtime/background';${hmrHandler}`;
+}
+
+// ============================================================================
+// Dev Mode Build
+// ============================================================================
+
+/**
+ * Bundle extension files to disk using esbuild.
+ * Used in dev mode for fast incremental rebuilds.
+ */
+async function bundleWithEsbuild(
+  outDir: string,
+  devServerPort: number,
+  manifestPartial: Partial<ManifestV3>
+): Promise<void> {
+  const fs = await import('fs/promises');
+  await fs.mkdir(outDir, { recursive: true });
+
+  // Bundle content.js
+  await esbuild({
+    stdin: {
+      contents: generateContentEntry(true, devServerPort),
+      resolveDir: process.cwd(),
+      loader: 'ts',
+    },
+    bundle: true,
+    format: 'iife',
+    outfile: path.join(outDir, 'content.js'),
+  });
+
+  // Bundle background.js
+  await esbuild({
+    stdin: {
+      contents: generateBackgroundEntry(true),
+      resolveDir: process.cwd(),
+      loader: 'ts',
+    },
+    bundle: true,
+    format: 'iife',
+    outfile: path.join(outDir, 'background.js'),
+  });
+
+  // Write manifest.json
+  const manifest = buildManifest(manifestPartial, true);
+  await fs.writeFile(
+    path.join(outDir, 'manifest.json'),
+    JSON.stringify(manifest, null, 2)
+  );
+}
+
+// ============================================================================
 // Vite Plugin
 // ============================================================================
 
@@ -162,7 +248,7 @@ function buildManifest(partial: Partial<ManifestV3>, isDev: boolean): ManifestV3
  * });
  * ```
  *
- * Dev mode: Run with `FIBER_DEV=true vite build` for watch mode + HMR.
+ * Dev mode: Run `vite dev` for watch mode + HMR.
  */
 export function fiberExtension(options: FiberOptions): Plugin {
   let isDev = false;
@@ -172,10 +258,20 @@ export function fiberExtension(options: FiberOptions): Plugin {
   return {
     name: 'fiber-extension',
 
-    config() {
-      // Dev uses `FIBER_DEV=true vite build` (not `vite serve`) since Chrome loads from disk
-      isDev = process.env.FIBER_DEV === 'true';
+    config(_, { command }) {
+      // Dev mode when running `vite dev` (command === 'serve')
+      isDev = command === 'serve';
 
+      // In dev mode, we build with esbuild via configureServer
+      if (isDev) {
+        return {
+          build: {
+            outDir: 'dist',
+          },
+        };
+      }
+
+      // Production build uses Rollup with virtual modules
       return {
         build: {
           rollupOptions: {
@@ -192,10 +288,7 @@ export function fiberExtension(options: FiberOptions): Plugin {
             preserveEntrySignatures: 'strict',
           },
           outDir: 'dist',
-          // Enable watch mode in dev
-          watch: isDev ? {} : null,
-          // Don't empty outDir on each rebuild in watch mode
-          emptyOutDir: !isDev,
+          emptyOutDir: true,
         }
       };
     },
@@ -203,6 +296,48 @@ export function fiberExtension(options: FiberOptions): Plugin {
     configResolved(config: ResolvedConfig) {
       _resolvedConfig = config;
       devServerPort = config.server.port ?? 5173;
+    },
+
+    configureServer(server: ViteDevServer) {
+      const outDir = server.config.build.outDir;
+      const port = server.config.server.port ?? 5173;
+
+      // Initial build on server start
+      server.httpServer?.once('listening', async () => {
+        console.log('[fiber] Building extension...');
+        try {
+          await bundleWithEsbuild(outDir, port, options.manifest);
+          console.log('[fiber] Extension built. Load dist/ folder in chrome://extensions');
+        } catch (err) {
+          console.error('[fiber] Initial build failed:', err);
+        }
+      });
+
+      // Watch src/ and rebuild on changes
+      const srcDir = path.resolve('src');
+      server.watcher.on('change', async (file: string) => {
+        if (!file.startsWith(srcDir)) return;
+
+        console.log(`[fiber] ${path.relative(process.cwd(), file)} changed, rebuilding...`);
+        try {
+          await bundleWithEsbuild(outDir, port, options.manifest);
+          console.log('[fiber] Rebuild complete');
+        } catch (err) {
+          console.error('[fiber] Rebuild failed:', err);
+        }
+      });
+    },
+
+    handleHotUpdate({ file, server }) {
+      const srcDir = path.resolve('src');
+      if (!file.startsWith(srcDir)) return;
+
+      // Tell all connected clients to update
+      // The content script's HMR client listens for 'update' messages
+      server.ws.send({ type: 'update', updates: [] });
+
+      // Return empty array to prevent Vite's default HMR
+      return [];
     },
 
     resolveId(id: string) {
@@ -217,35 +352,17 @@ export function fiberExtension(options: FiberOptions): Plugin {
     },
 
     load(id: string) {
+      // Virtual modules are used for production builds (vite build)
+      // Dev mode uses bundleWithEsbuild() directly via configureServer
       if (id === 'virtual:fiber/content') {
-        // HMR initialization only in dev mode
-        const hmrInit = isDev
-          ? `import { initHmr } from 'fiber-extension/runtime/hmr';\ninitHmr('ws://localhost:${devServerPort}');`
-          : '';
-        // Use path.resolve to get absolute path to user's app.ts
-        const appPath = path.resolve('src/app.ts').replace(/\\/g, '/');
-        return `${hmrInit}\nimport '${appPath}';`;
+        return generateContentEntry(isDev, devServerPort);
       }
 
       if (id === 'virtual:fiber/background') {
-        // HMR reload handler is only included in dev builds
-        const hmrHandler = isDev
-          ? `
-// HMR: Listen for reload requests from content scripts
-chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg.type === 'fiber:hmr-reload' && sender.tab?.id) {
-    chrome.scripting.executeScript({
-      target: { tabId: sender.tab.id },
-      files: ['content.js'],
-    });
-  }
-});`
-          : '';
-        return `import 'fiber-extension/runtime/background';${hmrHandler}`;
+        return generateBackgroundEntry(isDev);
       }
 
       if (id === 'virtual:fiber/runtime') {
-        // Use package paths, not relative paths (virtual modules can't resolve relative)
         return [
           `export { ext } from 'fiber-extension/runtime/ext';`,
           `export { overlay } from 'fiber-extension/runtime/overlay';`,
@@ -273,9 +390,6 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
     buildEnd(error: Error | undefined) {
       if (error) {
         console.error('[fiber] Build failed:', error.message);
-      } else if (isDev) {
-        console.log('[fiber] Build complete. Load dist/ folder in chrome://extensions');
-        console.log('[fiber] Watching for changes...');
       }
     },
 
