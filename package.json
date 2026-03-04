@@ -37,9 +37,11 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test --config=e2e/playwright.config.ts"
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.0",
     "@types/node": "^25.3.3",
     "chrome-types": "^0.1.327",
     "lit": "^3.3.2",
@@ -64,5 +66,8 @@
     "typescript",
     "framework"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
 }

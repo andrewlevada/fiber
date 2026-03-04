@@ -187,14 +187,37 @@ async function handleFetchBody(...args: unknown[]): Promise<unknown> {
 // ============================================================================
 
 /**
+ * Wrap Chrome API methods to preserve their `this` context.
+ * Chrome API methods throw "Illegal invocation" if called without proper binding.
+ */
+function bindChromeMethods<T extends object>(obj: T): T {
+  const bound: Record<string, unknown> = {};
+  for (const key of Object.keys(obj)) {
+    const value = (obj as Record<string, unknown>)[key];
+    if (typeof value === 'function') {
+      bound[key] = value.bind(obj);
+    } else if (typeof value === 'object' && value !== null) {
+      bound[key] = bindChromeMethods(value as object);
+    } else {
+      bound[key] = value;
+    }
+  }
+  return bound as T;
+}
+
+/**
  * RPC handlers for Chrome API passthrough and fetch proxy.
  * Each namespace is exposed directly, allowing the RPC layer to resolve
  * nested methods like "tabs.query" -> handlers.tabs.query
  */
 const handlers: RpcHandlers = {
-  // Chrome API passthrough
-  tabs: chrome.tabs,
-  storage: chrome.storage,
+  // Chrome API passthrough (bound to preserve context)
+  tabs: bindChromeMethods(chrome.tabs),
+  storage: {
+    local: bindChromeMethods(chrome.storage.local),
+    sync: bindChromeMethods(chrome.storage.sync),
+    session: bindChromeMethods(chrome.storage.session),
+  },
 
   // Fetch proxy handlers
   fetch: handleFetch,

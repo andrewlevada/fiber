@@ -7,6 +7,7 @@
 
 import type { Plugin, ResolvedConfig } from 'vite';
 import path from 'path';
+import { build as esbuild } from 'esbuild';
 
 // ============================================================================
 // Manifest Types (subset of chrome.runtime.ManifestV3)
@@ -118,7 +119,6 @@ function buildManifest(partial: Partial<ManifestV3>, isDev: boolean): ManifestV3
     host_permissions: hostPermissions,
     background: {
       service_worker: 'background.js',
-      type: 'module',
     },
     content_scripts: [{
       matches: contentMatches.length > 0 ? contentMatches : ['<all_urls>'],
@@ -185,9 +185,11 @@ export function fiberExtension(options: FiberOptions): Plugin {
             },
             output: {
               entryFileNames: '[name].js',
-              // Ensure chunks are named predictably
               chunkFileNames: '[name].js',
-            }
+            },
+            // Disable code splitting - each entry bundles all its dependencies.
+            // This is required because content scripts can't import external files.
+            preserveEntrySignatures: 'strict',
           },
           outDir: 'dist',
           // Enable watch mode in dev
@@ -274,6 +276,42 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
       } else if (isDev) {
         console.log('[fiber] Build complete. Load dist/ folder in chrome://extensions');
         console.log('[fiber] Watching for changes...');
+      }
+    },
+
+    async closeBundle() {
+      // Content scripts can't use ES module imports - they need everything bundled.
+      // Re-bundle content.js with esbuild to inline all dependencies as IIFE.
+      const outDir = _resolvedConfig.build.outDir;
+      const contentPath = path.join(outDir, 'content.js');
+      const backgroundPath = path.join(outDir, 'background.js');
+
+      await esbuild({
+        entryPoints: [contentPath],
+        bundle: true,
+        format: 'iife',
+        outfile: contentPath,
+        allowOverwrite: true,
+        minify: !isDev,
+      });
+
+      // Also bundle background.js for consistency (service workers work with IIFE too)
+      await esbuild({
+        entryPoints: [backgroundPath],
+        bundle: true,
+        format: 'iife',
+        outfile: backgroundPath,
+        allowOverwrite: true,
+        minify: !isDev,
+      });
+
+      // Clean up any chunk files that are no longer needed
+      const fs = await import('fs/promises');
+      const files = await fs.readdir(outDir);
+      for (const file of files) {
+        if (file.endsWith('.js') && file !== 'content.js' && file !== 'background.js') {
+          await fs.unlink(path.join(outDir, file));
+        }
       }
     }
   };

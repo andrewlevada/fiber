@@ -7,25 +7,17 @@ settings:
 importers:
 
   .:
-    devDependencies:
-      '@playwright/test':
-        specifier: ^1.51.0
-        version: 1.58.2
-      '@types/node':
-        specifier: ^25.3.3
-        version: 25.3.3
-      chrome-types:
-        specifier: ^0.1.327
-        version: 0.1.421
+    dependencies:
+      fiber-extension:
+        specifier: link:../../..
+        version: link:../../..
       lit:
         specifier: ^3.3.2
         version: 3.3.2
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
+    devDependencies:
       vite:
         specifier: ^7.3.1
-        version: 7.3.1(@types/node@25.3.3)
+        version: 7.3.1
 
 packages:
 
@@ -191,11 +183,6 @@ packages:
   '@lit/reactive-element@2.1.2':
     resolution: {integrity: sha512-pbCDiVMnne1lYUIaYNN5wrwQXDtHaYtg7YEFPeW+hws6U47WeFvISGUWekPGKWOP1ygrs0ef0o1VJMk1exos5A==}
 
-  '@playwright/test@1.58.2':
-    resolution: {integrity: sha512-akea+6bHYBBfA9uQqSYmlJXn61cTa+jbO87xVLCWbTqbWadRVmhxlXATaOjOgcBaWU4ePo0wB41KMFv3o35IXA==}
-    engines: {node: '>=18'}
-    hasBin: true
-
   '@rollup/rollup-android-arm-eabi@4.59.0':
     resolution: {integrity: sha512-upnNBkA6ZH2VKGcBj9Fyl9IGNPULcjXRlg0LLeaioQWueH30p6IXtJEbKAgvyv+mJaMxSm1l6xwDXYjpEMiLMg==}
     cpu: [arm]
@@ -337,14 +324,8 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
-  '@types/node@25.3.3':
-    resolution: {integrity: sha512-DpzbrH7wIcBaJibpKo9nnSQL0MTRdnWttGyE5haGwK86xgMOkFLp7vEyfQPGLOJh5wNYiJ3V9PmUMDhV9u8kkQ==}
-
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
-
-  chrome-types@0.1.421:
-    resolution: {integrity: sha512-SJ6YS3gpeN8lERkrBRr1RHA52gAPvCs02870A+RXO8clq36282uSaYByhrFWrkQ+qvhThoEuMBBR0GbM58zvHw==}
 
   esbuild@0.27.3:
     resolution: {integrity: sha512-8VwMnyGCONIs6cWue2IdpHxHnAjzxnw2Zr7MkVxB2vjmQ2ivqGFb4LEG3SMnv0Gb2F/G/2yA8zUaiL1gywDCCg==}
@@ -359,11 +340,6 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
-
-  fsevents@2.3.2:
-    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
-    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
-    os: [darwin]
 
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
@@ -391,16 +367,6 @@ packages:
     resolution: {integrity: sha512-5gTmgEY/sqK6gFXLIsQNH19lWb4ebPDLA4SdLP7dsWkIXHWlG66oPuVvXSGFPppYZz8ZDZq0dYYrbHfBCVUb1Q==}
     engines: {node: '>=12'}
 
-  playwright-core@1.58.2:
-    resolution: {integrity: sha512-yZkEtftgwS8CsfYo7nm0KE8jsvm6i/PTgVtB8DL726wNf6H2IMsDuxCpJj59KDaxCtSnrWan2AeDqM7JBaultg==}
-    engines: {node: '>=18'}
-    hasBin: true
-
-  playwright@1.58.2:
-    resolution: {integrity: sha512-vA30H8Nvkq/cPBnNw4Q8TWz1EJyqgpuinBcHET0YVJVFldr8JDNiU9LaWAE1KqSkRYazuaBhTpB5ZzShOezQ6A==}
-    engines: {node: '>=18'}
-    hasBin: true
-
   postcss@8.5.8:
     resolution: {integrity: sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg==}
     engines: {node: ^10 || ^12 || >=14}
@@ -417,14 +383,6 @@ packages:
   tinyglobby@0.2.15:
     resolution: {integrity: sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==}
     engines: {node: '>=12.0.0'}
-
-  typescript@5.9.3:
-    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
-    engines: {node: '>=14.17'}
-    hasBin: true
-
-  undici-types@7.18.2:
-    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
   vite@7.3.1:
     resolution: {integrity: sha512-w+N7Hifpc3gRjZ63vYBXA56dvvRlNWRczTdmCBBa+CotUzAPf5b7YMdMR/8CQoeYE5LX3W4wj6RYTgonm1b9DA==}
@@ -552,10 +510,6 @@ snapshots:
     dependencies:
       '@lit-labs/ssr-dom-shim': 1.5.1
 
-  '@playwright/test@1.58.2':
-    dependencies:
-      playwright: 1.58.2
-
   '@rollup/rollup-android-arm-eabi@4.59.0':
     optional: true
 
@@ -633,13 +587,7 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
-  '@types/node@25.3.3':
-    dependencies:
-      undici-types: 7.18.2
-
   '@types/trusted-types@2.0.7': {}
-
-  chrome-types@0.1.421: {}
 
   esbuild@0.27.3:
     optionalDependencies:
@@ -674,9 +622,6 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.3
 
-  fsevents@2.3.2:
-    optional: true
-
   fsevents@2.3.3:
     optional: true
 
@@ -701,14 +646,6 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.3: {}
-
-  playwright-core@1.58.2: {}
-
-  playwright@1.58.2:
-    dependencies:
-      playwright-core: 1.58.2
-    optionalDependencies:
-      fsevents: 2.3.2
 
   postcss@8.5.8:
     dependencies:
@@ -754,11 +691,7 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.3)
       picomatch: 4.0.3
 
-  typescript@5.9.3: {}
-
-  undici-types@7.18.2: {}
-
-  vite@7.3.1(@types/node@25.3.3):
+  vite@7.3.1:
     dependencies:
       esbuild: 0.27.3
       fdir: 6.5.0(picomatch@4.0.3)
@@ -767,5 +700,4 @@ snapshots:
       rollup: 4.59.0
       tinyglobby: 0.2.15
     optionalDependencies:
-      '@types/node': 25.3.3
       fsevents: 2.3.3
