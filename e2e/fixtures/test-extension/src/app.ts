@@ -1,5 +1,5 @@
 import { ext, overlay } from 'fiber-extension';
-import { html } from 'lit';
+import { html } from 'lit-html';
 
 // Content scripts run in isolated context - use custom events to communicate with page
 // Listen for test commands from the page and respond via custom events

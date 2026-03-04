@@ -5,9 +5,10 @@
  * Uses Lit for efficient template rendering.
  */
 
-import { render, type TemplateResult } from 'lit';
+import { render, type TemplateResult } from 'lit-html';
 
-const OVERLAY_TAG = 'fiber-overlay';
+/** Data attribute to identify fiber overlay containers */
+const OVERLAY_ATTR = 'data-fiber-overlay';
 
 /** Container element reference */
 let container: HTMLElement | null = null;
@@ -36,7 +37,10 @@ const CONTAINER_STYLES = `
 
 /**
  * Attach the overlay container to the page.
- * Creates a custom element with Shadow DOM and renders the initial template.
+ * Creates a div with Shadow DOM and renders the initial template.
+ *
+ * Note: Uses a plain div instead of custom element because customElements
+ * API is not available in Chrome extension content scripts (isolated world).
  *
  * @param template - Lit template to render initially
  * @throws Error if attach() was already called without detach()
@@ -48,13 +52,11 @@ function attach(template: TemplateResult): void {
     );
   }
 
-  // Create custom element if not defined
-  if (!customElements.get(OVERLAY_TAG)) {
-    customElements.define(OVERLAY_TAG, class extends HTMLElement {});
-  }
-
-  // Create container and attach shadow DOM
-  container = document.createElement(OVERLAY_TAG);
+  // Create container div with shadow DOM
+  // Using a div instead of custom element because customElements is not
+  // available in Chrome extension content scripts (isolated world)
+  container = document.createElement('div');
+  container.setAttribute(OVERLAY_ATTR, '');
   shadowRoot = container.attachShadow({ mode: 'open' });
 
   // Add styles

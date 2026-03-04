@@ -37,7 +37,7 @@ my-extension/
 
 ```typescript
 import { ext, overlay } from 'fiber-extension';
-import { html, css } from 'lit';
+import { html } from 'lit-html';
 
 // fetch works everywhere
 const res = await ext.fetch('https://api.example.com/data');
@@ -50,19 +50,13 @@ console.log('Current tab:', tab.title);
 // Storage
 await ext.storage.local.set({ lastVisit: Date.now() });
 
-// Overlay UI with Lit
-class MyPanel extends LitElement {
-  static styles = css`
-    :host { display: block; padding: 16px; background: white; }
-  `;
-
-  render() {
-    return html`<p>Hello from ${tab.title}</p>`;
-  }
-}
-customElements.define('my-panel', MyPanel);
-
-overlay.attach(html`<my-panel></my-panel>`);
+// Overlay UI with lit-html templates
+overlay.attach(html`
+  <div style="padding: 16px; background: white; border-radius: 8px;">
+    <p>Hello from ${tab.title}</p>
+    <p>Data: ${JSON.stringify(data)}</p>
+  </div>
+`);
 ```
 
 ### `vite.config.ts`

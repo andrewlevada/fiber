@@ -2,7 +2,7 @@
  * TypeScript Definitions for Overlay System
  */
 
-import type { TemplateResult } from 'lit';
+import type { TemplateResult } from 'lit-html';
 
 /**
  * Overlay API for content scripts.
@@ -26,16 +26,20 @@ export interface Overlay {
   /**
    * Attach the overlay container to the page and render initial content.
    *
-   * Creates a `<fiber-overlay>` custom element with Shadow DOM and appends
-   * it to the document. The template is rendered into the shadow root.
+   * Creates a container element with Shadow DOM and appends it to the document.
+   * The template is rendered into the shadow root using lit-html.
+   *
+   * Note: Uses a div with Shadow DOM instead of a custom element because
+   * the customElements API is not available in Chrome extension content
+   * scripts (which run in an isolated JavaScript world).
    *
    * @param template - Lit template to render initially
    * @throws Error if attach() was already called without detach()
    *
    * @example
    * ```ts
-   * import { overlay } from 'fiber-extension/runtime/overlay';
-   * import { html } from 'lit';
+   * import { overlay } from 'fiber-extension';
+   * import { html } from 'lit-html';
    *
    * overlay.attach(html`<div class="my-ui">Hello!</div>`);
    * ```

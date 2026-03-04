@@ -9,7 +9,7 @@ test.describe('Overlay Rendering', () => {
 
     await callContentScript(page, 'attachOverlay');
 
-    await expect(page.locator('fiber-overlay')).toBeAttached();
+    await expect(page.locator('[data-fiber-overlay]')).toBeAttached();
     await expect(page.getByTestId('fiber-overlay-content')).toBeVisible();
     await expect(page.getByText('Fiber Overlay Test')).toBeVisible();
   });
@@ -34,10 +34,10 @@ test.describe('Overlay Rendering', () => {
     await expect(page.locator('html[data-fiber-loaded="true"]')).toBeAttached();
 
     await callContentScript(page, 'attachOverlay');
-    await expect(page.locator('fiber-overlay')).toBeAttached();
+    await expect(page.locator('[data-fiber-overlay]')).toBeAttached();
 
     await callContentScript(page, 'detachOverlay');
-    await expect(page.locator('fiber-overlay')).not.toBeAttached();
+    await expect(page.locator('[data-fiber-overlay]')).not.toBeAttached();
   });
 
   test('should throw if attach called twice without detach', async ({ context }) => {

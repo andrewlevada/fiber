@@ -57,6 +57,7 @@ interface ManifestContentScript {
   js?: string[];
   css?: string[];
   run_at?: 'document_start' | 'document_end' | 'document_idle';
+  world?: 'ISOLATED' | 'MAIN';
 }
 
 /** Manifest V3 structure (partial) */
