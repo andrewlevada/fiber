@@ -2,13 +2,11 @@
  * HMR Client for Content Scripts (Dev Only)
  *
  * Connects to Vite dev server via WebSocket to receive change notifications.
- * On update, resets overlay state and requests background to re-inject content script.
+ * On update, reloads the extension and refreshes the page.
  *
  * Note: This module is tree-shaken in production builds as it's only imported
  * via the virtual:fiber/content module when FIBER_DEV=true.
  */
-
-import { __hmrReset as resetOverlay } from './overlay';
 
 /**
  * Initialize HMR connection to Vite dev server.
@@ -33,13 +31,13 @@ export function initHmr(serverUrl: string): void {
     // Vite sends 'update' messages when files change
     if (msg.type !== 'update') return;
 
-    console.log('[fiber] Update detected, reloading...');
+    console.log('[fiber] Update detected, reloading extension...');
 
-    // 1. Reset overlay (triggers Lit disconnectedCallback for cleanup)
-    resetOverlay();
+    // Request background to reload extension, then refresh page
+    chrome.runtime.sendMessage({ type: 'fiber:ext-reload' });
 
-    // 2. Request background to re-inject content script
-    chrome.runtime.sendMessage({ type: 'fiber:hmr-reload' });
+    // Give extension time to reload, then refresh page to get new content script
+    setTimeout(() => location.reload(), 300);
   };
 
   ws.onerror = () => {

@@ -225,3 +225,16 @@ const handlers: RpcHandlers = {
 };
 
 createRpcServer(handlers);
+
+// ============================================================================
+// Action Click Handler
+// ============================================================================
+
+/**
+ * When the extension icon is clicked, send a toggle message to the active tab.
+ */
+chrome.action.onClicked.addListener(async (tab) => {
+  if (tab.id) {
+    chrome.tabs.sendMessage(tab.id, { type: 'fiber:toggle-overlay' });
+  }
+});

@@ -132,7 +132,8 @@ function buildManifest(partial: Partial<ManifestV3>, isDev: boolean): ManifestV3
   // Merge optional fields from partial
   if (partial.description) manifest.description = partial.description;
   if (partial.icons) manifest.icons = partial.icons;
-  if (partial.action) manifest.action = partial.action;
+  // Always include action for chrome.action.onClicked to work
+  manifest.action = partial.action ?? {};
   if (partial.web_accessible_resources) {
     manifest.web_accessible_resources = partial.web_accessible_resources;
   }
@@ -146,33 +147,41 @@ function buildManifest(partial: Partial<ManifestV3>, isDev: boolean): ManifestV3
 
 /**
  * Generate content script entry code.
- * @param isDev - Whether in dev mode (includes HMR init)
- * @param devServerPort - Port for HMR WebSocket
+ * @param isDev - Whether in dev mode (unused, kept for API consistency)
+ * @param devServerPort - Port for dev server (unused, kept for API consistency)
  */
-function generateContentEntry(isDev: boolean, devServerPort: number): string {
+function generateContentEntry(_isDev: boolean, _devServerPort: number): string {
   const appPath = path.resolve('src/app.ts').replace(/\\/g, '/');
-  const hmrInit = isDev
-    ? `import { initHmr } from 'fiber-extension/runtime/hmr';\ninitHmr('ws://localhost:${devServerPort}');`
-    : '';
-  return `${hmrInit}\nimport '${appPath}';`;
+  return `import '${appPath}';`;
 }
 
 /**
  * Generate background script entry code.
  * @param isDev - Whether in dev mode (includes HMR handler)
+ * @param devServerPort - Dev server port for polling
  */
-function generateBackgroundEntry(isDev: boolean): string {
+function generateBackgroundEntry(isDev: boolean, devServerPort: number): string {
   const hmrHandler = isDev
     ? `
-// HMR: Listen for reload requests from content scripts
-chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg.type === 'fiber:hmr-reload' && sender.tab?.id) {
-    chrome.scripting.executeScript({
-      target: { tabId: sender.tab.id },
-      files: ['content.js'],
-    });
-  }
-});`
+// HMR: Poll dev server for changes and reload extension
+let lastTimestamp = Date.now();
+async function checkForUpdates() {
+  try {
+    const res = await fetch('http://localhost:${devServerPort}/__fiber_timestamp');
+    const ts = await res.text();
+    if (parseInt(ts) > lastTimestamp) {
+      lastTimestamp = parseInt(ts);
+      // Reload all extension tabs first
+      const tabs = await chrome.tabs.query({});
+      for (const tab of tabs) {
+        if (tab.id) chrome.tabs.reload(tab.id);
+      }
+      // Then reload extension
+      chrome.runtime.reload();
+    }
+  } catch {}
+}
+setInterval(checkForUpdates, 1000);`
     : '';
   return `import 'fiber-extension/runtime/background';${hmrHandler}`;
 }
@@ -208,7 +217,7 @@ async function bundleWithEsbuild(
   // Bundle background.js
   await esbuild({
     stdin: {
-      contents: generateBackgroundEntry(true),
+      contents: generateBackgroundEntry(true, devServerPort),
       resolveDir: process.cwd(),
       loader: 'ts',
     },
@@ -302,6 +311,14 @@ export function fiberExtension(options: FiberOptions): Plugin {
     configureServer(server: ViteDevServer) {
       const outDir = server.config.build.outDir;
       const port = server.config.server.port ?? 5173;
+      let lastBuildTimestamp = Date.now();
+
+      // Serve timestamp endpoint for extension polling
+      server.middlewares.use('/__fiber_timestamp', (_req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Content-Type', 'text/plain');
+        res.end(String(lastBuildTimestamp));
+      });
 
       // Initial build on server start
       server.httpServer?.once('listening', async () => {
@@ -322,6 +339,7 @@ export function fiberExtension(options: FiberOptions): Plugin {
         console.log(`[fiber] ${path.relative(process.cwd(), file)} changed, rebuilding...`);
         try {
           await bundleWithEsbuild(outDir, port, options.manifest);
+          lastBuildTimestamp = Date.now();
           console.log('[fiber] Rebuild complete');
         } catch (err) {
           console.error('[fiber] Rebuild failed:', err);
@@ -360,7 +378,7 @@ export function fiberExtension(options: FiberOptions): Plugin {
       }
 
       if (id === 'virtual:fiber/background') {
-        return generateBackgroundEntry(isDev);
+        return generateBackgroundEntry(isDev, devServerPort);
       }
 
       if (id === 'virtual:fiber/runtime') {

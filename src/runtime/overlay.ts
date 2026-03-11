@@ -16,6 +16,12 @@ let container: HTMLElement | null = null;
 /** Shadow root reference for rendering */
 let shadowRoot: ShadowRoot | null = null;
 
+/** Whether the overlay is currently visible */
+let isVisible = false;
+
+/** Stored template for toggle mode */
+let storedTemplate: TemplateResult | null = null;
+
 /**
  * Styles for the overlay container.
  * - Fixed positioning covers the viewport
@@ -100,11 +106,85 @@ function detach(): void {
 }
 
 /**
+ * Show the overlay (used with attachOnAction mode).
+ */
+function show(): void {
+  if (container === null || storedTemplate === null) return;
+  if (isVisible) return;
+
+  isVisible = true;
+  container.style.display = '';
+  render(storedTemplate, shadowRoot!);
+}
+
+/**
+ * Hide the overlay (used with attachOnAction mode).
+ */
+function hide(): void {
+  if (container === null) return;
+  if (!isVisible) return;
+
+  isVisible = false;
+  container.style.display = 'none';
+}
+
+/**
+ * Toggle overlay visibility.
+ */
+function toggle(): void {
+  if (isVisible) {
+    hide();
+  } else {
+    show();
+  }
+}
+
+/**
+ * Attach the overlay in "onAction" mode.
+ * The overlay starts hidden and toggles when the extension icon is clicked.
+ *
+ * @param template - Lit template to render (should include a close button that calls overlay.hide())
+ */
+function attachOnAction(template: TemplateResult): void {
+  if (container !== null) {
+    throw new Error(
+      'overlay.attachOnAction() was already called. Call overlay.detach() first to re-attach.'
+    );
+  }
+
+  storedTemplate = template;
+
+  // Create container div with shadow DOM
+  container = document.createElement('div');
+  container.setAttribute(OVERLAY_ATTR, '');
+  container.style.display = 'none'; // Start hidden
+  shadowRoot = container.attachShadow({ mode: 'open' });
+
+  // Add styles
+  const styleSheet = new CSSStyleSheet();
+  styleSheet.replaceSync(CONTAINER_STYLES);
+  shadowRoot.adoptedStyleSheets = [styleSheet];
+
+  // Append to document
+  document.documentElement.appendChild(container);
+
+  // Listen for toggle messages from background script
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'fiber:toggle-overlay') {
+      toggle();
+    }
+    return undefined;
+  });
+}
+
+/**
  * Internal function for HMR to reset overlay state.
  * Called by the Vite plugin during hot module replacement.
  */
 export function __hmrReset(): void {
   detach();
+  storedTemplate = null;
+  isVisible = false;
 }
 
 /**
@@ -112,8 +192,12 @@ export function __hmrReset(): void {
  */
 export const overlay = {
   attach,
+  attachOnAction,
   render: renderOverlay,
   detach,
+  show,
+  hide,
+  toggle,
 } as const;
 
 export type Overlay = typeof overlay;
