@@ -54,11 +54,11 @@ export function callContentScript(
 }
 
 export const test = base.extend<ExtensionFixtures>({
-  context: async (_, use) => {
-    const pathToExtension = path.join(
-      import.meta.dirname,
-      "fixtures/test-extension/dist",
-    );
+  context: async (_deps, use) => {
+    const dir = import.meta.dirname;
+    if (!dir) throw new Error("import.meta.dirname is not defined");
+
+    const pathToExtension = path.join(dir, "fixtures/test-extension/dist");
     const context = await chromium.launchPersistentContext("", {
       headless: false,
       args: [

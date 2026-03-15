@@ -1,4 +1,4 @@
-import { callContentScript, expect, test } from "../fixtures";
+import { callContentScript, expect, test } from "../fixtures.ts";
 
 test.describe("RPC Communication", () => {
   test("should communicate with background via ext.tabs.query", async ({ context }) => {

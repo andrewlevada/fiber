@@ -10,11 +10,6 @@ import type { TemplateResult } from "lit-html";
  * The overlay provides a Shadow DOM container for rendering UI that floats
  * above the page content. It uses Lit for efficient template rendering.
  *
- * Lifecycle:
- * 1. Call `attach(template)` to create the overlay and render initial content
- * 2. Call `render(template)` to update the content
- * 3. Call `detach()` to remove the overlay
- *
  * The overlay container:
  * - Uses Shadow DOM for style isolation
  * - Has `position: fixed` covering the viewport
@@ -24,55 +19,47 @@ import type { TemplateResult } from "lit-html";
  */
 export interface Overlay {
   /**
-   * Attach the overlay container to the page and render initial content.
+   * Show the overlay with the given template.
+   * Creates the container if it doesn't exist, or updates content if it does.
    *
-   * Creates a container element with Shadow DOM and appends it to the document.
-   * The template is rendered into the shadow root using lit-html.
-   *
-   * Note: Uses a div with Shadow DOM instead of a custom element because
-   * the customElements API is not available in Chrome extension content
-   * scripts (which run in an isolated JavaScript world).
-   *
-   * @param template - Lit template to render initially
-   * @throws Error if attach() was already called without detach()
+   * @param template - Lit template to render
    *
    * @example
    * ```ts
    * import { overlay } from 'fiber-extension';
    * import { html } from 'lit-html';
    *
-   * overlay.attach(html`<div class="my-ui">Hello!</div>`);
+   * overlay.show(html`<div class="my-ui">Hello!</div>`);
    * ```
    */
-  attach(template: TemplateResult): void;
+  show(template: TemplateResult): void;
 
   /**
-   * Update the overlay content with a new template.
+   * Set up the overlay to toggle when the extension icon is clicked.
+   * The overlay starts hidden and shows/hides on each action click.
    *
-   * Uses Lit's efficient diffing to update only changed parts.
-   *
-   * @param template - Lit template to render
-   * @throws Error if attach() wasn't called first
+   * @param template - Lit template to render when shown
    *
    * @example
    * ```ts
-   * overlay.render(html`<div class="my-ui">Updated content</div>`);
+   * overlay.showOnAction(html`
+   *   <div class="my-ui">
+   *     <button @click=${() => overlay.hide()}>Close</button>
+   *   </div>
+   * `);
    * ```
    */
-  render(template: TemplateResult): void;
+  showOnAction(template: TemplateResult): void;
 
   /**
-   * Remove the overlay container from the page.
-   *
-   * After calling detach(), you can call attach() again to recreate
-   * the overlay.
+   * Hide the overlay.
    *
    * @example
    * ```ts
-   * overlay.detach();
+   * overlay.hide();
    * ```
    */
-  detach(): void;
+  hide(): void;
 }
 
 /**

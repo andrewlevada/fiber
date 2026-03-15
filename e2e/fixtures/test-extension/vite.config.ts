@@ -10,6 +10,7 @@ export default defineConfig({
         permissions: ["storage", "tabs"],
         host_permissions: ["<all_urls>"],
       },
-    }),
+      // deno-lint-ignore no-explicit-any
+    }) as any,
   ],
 });

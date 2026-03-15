@@ -1,4 +1,4 @@
-import { callContentScript, expect, test } from "../fixtures";
+import { callContentScript, expect, test } from "../fixtures.ts";
 
 test.describe("Extension Loading", () => {
   test("should load extension and inject content script", async ({ context, extensionId }) => {

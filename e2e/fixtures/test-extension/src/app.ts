@@ -1,5 +1,11 @@
-import { ext, overlay } from "fiber-extension";
+import type { ExtApi } from "../../../../dist/types/ext.d.ts";
+import type { Overlay } from "../../../../dist/types/overlay.d.ts";
+import { ext as extUntyped, overlay as overlayUntyped } from "fiber-extension";
 import { html } from "lit-html";
+
+// Cast to proper types (Deno can't resolve types from JS imports automatically)
+const ext = extUntyped as unknown as ExtApi;
+const overlay = overlayUntyped as unknown as Overlay;
 
 // Content scripts run in isolated context - use custom events to communicate with page
 // Listen for test commands from the page and respond via custom events
@@ -28,7 +34,7 @@ globalThis.addEventListener("fiber-test-command", async (e) => {
         break;
       }
       case "attachOverlay":
-        overlay.attach(html`
+        overlay.show(html`
           <div
             data-testid="fiber-overlay-content"
             style="position: absolute;
@@ -46,7 +52,7 @@ globalThis.addEventListener("fiber-test-command", async (e) => {
           result = true;
           break;
         case "detachOverlay":
-          overlay.detach();
+          overlay.hide();
           result = true;
           break;
         default:

@@ -10,7 +10,7 @@ import { html } from "lit";
 const response = await ext.fetch("https://api.example.com/data");
 const data = await response.json();
 
-overlay.attach(html`
+overlay.show(html`
   <div>Result: ${data.message}</div>
 `);
 ```
@@ -51,7 +51,7 @@ In `src/app.ts`:
 import { overlay } from "fiber-extension";
 import { html } from "lit";
 
-overlay.attach(html`
+overlay.show(html`
   <p>Hello</p>
 `);
 ```
@@ -109,8 +109,8 @@ const data = await response.json();
 import { overlay } from "fiber-extension";
 import { html } from "lit";
 
-// Attach overlay to page
-overlay.attach(html`
+// Show overlay (creates or updates)
+overlay.show(html`
   <div
     style="position: fixed; top: 20px; right: 20px; background: white; padding: 16px;"
   >
@@ -119,13 +119,18 @@ overlay.attach(html`
   </div>
 `);
 
-// Update content
-overlay.render(html`
-  <div>Updated content</div>
-`);
+// Hide overlay
+overlay.hide();
 
-// Remove overlay
-overlay.detach();
+// Or toggle on extension icon click
+overlay.showOnAction(html`
+  <div
+    style="position: fixed; top: 20px; right: 20px; background: white; padding: 16px;"
+  >
+    <h1>My Extension</h1>
+    <button @click="${() => overlay.hide()}">Close</button>
+  </div>
+`);
 ```
 
 ### HMR in Development

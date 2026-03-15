@@ -1,4 +1,4 @@
-import { callContentScript, expect, test } from "../fixtures";
+import { callContentScript, expect, test } from "../fixtures.ts";
 
 test.describe("Fetch Proxy", () => {
   test("should fetch data through background script", async ({ context }) => {

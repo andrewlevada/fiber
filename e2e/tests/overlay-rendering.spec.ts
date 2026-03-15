@@ -1,4 +1,4 @@
-import { callContentScript, expect, test } from "../fixtures";
+import { callContentScript, expect, test } from "../fixtures.ts";
 
 test.describe("Overlay Rendering", () => {
   test("should attach overlay with Shadow DOM", async ({ context }) => {
@@ -27,29 +27,30 @@ test.describe("Overlay Rendering", () => {
     await button.click();
   });
 
-  test("should detach overlay", async ({ context }) => {
+  test("should hide overlay", async ({ context }) => {
     const page = await context.newPage();
     await page.goto("https://example.com");
 
     await expect(page.locator('html[data-fiber-loaded="true"]')).toBeAttached();
 
     await callContentScript(page, "attachOverlay");
-    await expect(page.locator("[data-fiber-overlay]")).toBeAttached();
+    await expect(page.locator("[data-fiber-overlay]")).toBeVisible();
 
     await callContentScript(page, "detachOverlay");
-    await expect(page.locator("[data-fiber-overlay]")).not.toBeAttached();
+    await expect(page.locator("[data-fiber-overlay]")).not.toBeVisible();
   });
 
-  test("should throw if attach called twice without detach", async ({ context }) => {
+  test("should allow calling show multiple times", async ({ context }) => {
     const page = await context.newPage();
     await page.goto("https://example.com");
 
     await expect(page.locator('html[data-fiber-loaded="true"]')).toBeAttached();
 
     await callContentScript(page, "attachOverlay");
+    await expect(page.getByText("Fiber Overlay Test")).toBeVisible();
 
-    await expect(callContentScript(page, "attachOverlay")).rejects.toThrow(
-      /already called/,
-    );
+    // Calling show again should work without throwing
+    await callContentScript(page, "attachOverlay");
+    await expect(page.getByText("Fiber Overlay Test")).toBeVisible();
   });
 });

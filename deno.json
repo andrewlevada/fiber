@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.ns", "dom", "dom.iterable", "dom.asynciterable"],
+    "strict": true,
+    "types": ["./node_modules/chrome-types/index.d.ts"]
+  },
+  "imports": {
+    "fiber-extension": "./dist/index.js",
+    "fiber-extension/vite": "./dist/vite/plugin.js",
+    "@playwright/test": "npm:@playwright/test@^1.51.0",
+    "lit-html": "npm:lit-html@^3.3.2",
+    "vite": "npm:vite@^7.3.1"
+  },
+  "tasks": {
+    "build": "deno run -A npm:typescript/tsc && cp -r src/types dist/ && deno run --allow-read --allow-write scripts/fix-dts-imports.ts",
+    "typecheck": "deno check src/index.ts src/runtime/*.ts src/vite/*.ts e2e/*.ts e2e/tests/*.ts e2e/fixtures/test-extension/src/*.ts e2e/fixtures/test-extension/*.ts",
+    "test:e2e": "deno run --allow-read --allow-run e2e/run-tests.ts"
+  },
+  "exclude": ["node_modules", "**/node_modules"]
+}

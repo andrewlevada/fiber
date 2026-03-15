@@ -16,11 +16,11 @@ let container: HTMLElement | null = null;
 /** Shadow root reference for rendering */
 let shadowRoot: ShadowRoot | null = null;
 
-/** Whether the overlay is currently visible */
-let isVisible = false;
-
-/** Stored template for toggle mode */
+/** Stored template for showOnAction toggle mode */
 let storedTemplate: TemplateResult | null = null;
+
+/** Whether the toggle listener has been attached */
+let listenerAttached = false;
 
 /**
  * Styles for the overlay container.
@@ -42,139 +42,72 @@ const CONTAINER_STYLES = `
 `;
 
 /**
- * Attach the overlay container to the page.
- * Creates a div with Shadow DOM and renders the initial template.
- *
- * Note: Uses a plain div instead of custom element because customElements
- * API is not available in Chrome extension content scripts (isolated world).
- *
- * @param template - Lit template to render initially
- * @throws Error if attach() was already called without detach()
+ * Ensure the overlay container exists.
+ * Creates it if it doesn't exist yet.
  */
-function attach(template: TemplateResult): void {
-  if (container !== null) {
-    throw new Error(
-      "overlay.attach() was already called. Call overlay.detach() first to re-attach.",
-    );
+function ensureContainer(): ShadowRoot {
+  if (container === null) {
+    container = document.createElement("div");
+    container.setAttribute(OVERLAY_ATTR, "");
+    shadowRoot = container.attachShadow({ mode: "open" });
+
+    const styleSheet = new CSSStyleSheet();
+    styleSheet.replaceSync(CONTAINER_STYLES);
+    shadowRoot.adoptedStyleSheets = [styleSheet];
+
+    document.documentElement.appendChild(container);
   }
 
-  // Create container div with shadow DOM
-  // Using a div instead of custom element because customElements is not
-  // available in Chrome extension content scripts (isolated world)
-  container = document.createElement("div");
-  container.setAttribute(OVERLAY_ATTR, "");
-  shadowRoot = container.attachShadow({ mode: "open" });
-
-  // Add styles
-  const styleSheet = new CSSStyleSheet();
-  styleSheet.replaceSync(CONTAINER_STYLES);
-  shadowRoot.adoptedStyleSheets = [styleSheet];
-
-  // Append to document
-  document.documentElement.appendChild(container);
-
-  // Render initial template
-  render(template, shadowRoot);
+  return shadowRoot!;
 }
 
 /**
- * Update the overlay content with a new template.
+ * Show the overlay with the given template.
+ * Creates the container if it doesn't exist, or updates content if it does.
  *
  * @param template - Lit template to render
- * @throws Error if attach() wasn't called first
  */
-function renderOverlay(template: TemplateResult): void {
-  if (shadowRoot === null) {
-    throw new Error(
-      "overlay.render() called before overlay.attach(). Call attach() first.",
-    );
-  }
-
-  render(template, shadowRoot);
+function show(template: TemplateResult): void {
+  const root = ensureContainer();
+  container!.style.display = "";
+  render(template, root);
 }
 
 /**
- * Remove the overlay container from the page.
- * Resets state so attach() can be called again.
- */
-function detach(): void {
-  if (container !== null) {
-    container.remove();
-  }
-  container = null;
-  shadowRoot = null;
-}
-
-/**
- * Show the overlay (used with attachOnAction mode).
- */
-function show(): void {
-  if (container === null || storedTemplate === null) return;
-  if (isVisible) return;
-
-  isVisible = true;
-  container.style.display = "";
-  render(storedTemplate, shadowRoot!);
-}
-
-/**
- * Hide the overlay (used with attachOnAction mode).
- */
-function hide(): void {
-  if (container === null) return;
-  if (!isVisible) return;
-
-  isVisible = false;
-  container.style.display = "none";
-}
-
-/**
- * Toggle overlay visibility.
- */
-function toggle(): void {
-  if (isVisible) {
-    hide();
-  } else {
-    show();
-  }
-}
-
-/**
- * Attach the overlay in "onAction" mode.
- * The overlay starts hidden and toggles when the extension icon is clicked.
+ * Set up the overlay to toggle when the extension icon is clicked.
+ * The overlay starts hidden and shows/hides on each action click.
  *
- * @param template - Lit template to render (should include a close button that calls overlay.hide())
+ * @param template - Lit template to render when shown
  */
-function attachOnAction(template: TemplateResult): void {
-  if (container !== null) {
-    throw new Error(
-      "overlay.attachOnAction() was already called. Call overlay.detach() first to re-attach.",
-    );
-  }
+function showOnAction(template: TemplateResult): void {
+  ensureContainer();
 
+  container!.style.display = "none";
   storedTemplate = template;
 
-  // Create container div with shadow DOM
-  container = document.createElement("div");
-  container.setAttribute(OVERLAY_ATTR, "");
-  container.style.display = "none"; // Start hidden
-  shadowRoot = container.attachShadow({ mode: "open" });
+  if (!listenerAttached) {
+    listenerAttached = true;
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message.type === "fiber:toggle-overlay") {
+        if (container!.style.display === "none") {
+          container!.style.display = "";
+          if (storedTemplate) render(storedTemplate, shadowRoot!);
+        } else {
+          container!.style.display = "none";
+        }
+      }
+      return undefined;
+    });
+  }
+}
 
-  // Add styles
-  const styleSheet = new CSSStyleSheet();
-  styleSheet.replaceSync(CONTAINER_STYLES);
-  shadowRoot.adoptedStyleSheets = [styleSheet];
-
-  // Append to document
-  document.documentElement.appendChild(container);
-
-  // Listen for toggle messages from background script
-  chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === "fiber:toggle-overlay") {
-      toggle();
-    }
-    return undefined;
-  });
+/**
+ * Hide the overlay.
+ */
+function hide(): void {
+  if (container !== null) {
+    container.style.display = "none";
+  }
 }
 
 /**
@@ -182,22 +115,21 @@ function attachOnAction(template: TemplateResult): void {
  * Called by the Vite plugin during hot module replacement.
  */
 export function __hmrReset(): void {
-  detach();
+  if (container !== null) {
+    container.remove();
+  }
+  container = null;
+  shadowRoot = null;
   storedTemplate = null;
-  isVisible = false;
 }
 
 /**
  * Overlay API for content scripts.
  */
 export const overlay = {
-  attach,
-  attachOnAction,
-  render: renderOverlay,
-  detach,
   show,
+  showOnAction,
   hide,
-  toggle,
 } as const;
 
 export type Overlay = typeof overlay;
