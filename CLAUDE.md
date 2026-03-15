@@ -20,8 +20,8 @@ pnpm typecheck      # Type-check without emitting
 
 # E2E tests (Playwright + Chrome)
 pnpm test:e2e                    # Run all tests
-node e2e/run-tests.js --list     # List available tests
-node e2e/run-tests.js 1 2        # Run specific tests by number
+node e2e/run-tests.ts --list     # List available tests
+node e2e/run-tests.ts 1 2        # Run specific tests by number
 ```
 
 ## Architecture

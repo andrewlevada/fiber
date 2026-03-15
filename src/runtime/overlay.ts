@@ -2,7 +2,7 @@
  * Overlay System
  *
  * Provides a Shadow DOM container for rendering UI in content scripts.
- * Uses Lit for efficient template rendering.
+ * Uses Lit for efficient template rendering with scoped custom element registry.
  */
 
 import { render, type TemplateResult } from "lit-html";
@@ -15,6 +15,19 @@ let container: HTMLElement | null = null;
 
 /** Shadow root reference for rendering */
 let shadowRoot: ShadowRoot | null = null;
+
+/** Scoped custom element registry for this overlay (null means use global) */
+let registry: CustomElementRegistry | null = null;
+
+/** Whether scoped custom element registries are supported */
+const scopedRegistrySupported = (() => {
+  try {
+    new CustomElementRegistry();
+    return true;
+  } catch {
+    return false;
+  }
+})();
 
 /** Stored template for showOnAction toggle mode */
 let storedTemplate: TemplateResult | null = null;
@@ -49,7 +62,18 @@ function ensureContainer(): ShadowRoot {
   if (container === null) {
     container = document.createElement("div");
     container.setAttribute(OVERLAY_ATTR, "");
-    shadowRoot = container.attachShadow({ mode: "open" });
+
+    if (scopedRegistrySupported) {
+      // Create scoped registry for custom elements (Chrome 146+)
+      registry = new CustomElementRegistry();
+      shadowRoot = container.attachShadow({
+        mode: "open",
+        customElements: registry,
+      });
+    } else {
+      // Fallback for older browsers: use global registry
+      shadowRoot = container.attachShadow({ mode: "open" });
+    }
 
     const styleSheet = new CSSStyleSheet();
     styleSheet.replaceSync(CONTAINER_STYLES);
@@ -59,6 +83,25 @@ function ensureContainer(): ShadowRoot {
   }
 
   return shadowRoot!;
+}
+
+/**
+ * Register a custom element in the overlay's scoped registry.
+ * Must be called before using the element in templates.
+ */
+function defineElement(
+  name: string,
+  constructor: CustomElementConstructor,
+): void {
+  ensureContainer();
+  if (registry) {
+    registry.define(name, constructor);
+  } else {
+    // Fallback: use global registry, skip if already defined
+    if (!customElements.get(name)) {
+      customElements.define(name, constructor);
+    }
+  }
 }
 
 /**
@@ -120,6 +163,7 @@ export function __hmrReset(): void {
   }
   container = null;
   shadowRoot = null;
+  registry = null;
   storedTemplate = null;
 }
 
@@ -130,6 +174,7 @@ export const overlay = {
   show,
   showOnAction,
   hide,
+  defineElement,
 } as const;
 
 export type Overlay = typeof overlay;

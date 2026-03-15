@@ -54,7 +54,8 @@ export function callContentScript(
 }
 
 export const test = base.extend<ExtensionFixtures>({
-  context: async (_deps, use) => {
+  // deno-lint-ignore no-empty-pattern
+  context: async ({}, use) => {
     const dir = import.meta.dirname;
     if (!dir) throw new Error("import.meta.dirname is not defined");
 

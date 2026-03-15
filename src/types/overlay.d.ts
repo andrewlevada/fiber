@@ -60,6 +60,22 @@ export interface Overlay {
    * ```
    */
   hide(): void;
+
+  /**
+   * Register a custom element in the overlay's scoped registry.
+   * Must be called before using the element in templates.
+   * Uses Chrome 146+ scoped custom element registry feature.
+   *
+   * @param name - The custom element tag name
+   * @param constructor - The custom element class
+   *
+   * @example
+   * ```ts
+   * overlay.defineElement('my-widget', MyWidget);
+   * overlay.showOnAction(html`<my-widget></my-widget>`);
+   * ```
+   */
+  defineElement(name: string, constructor: CustomElementConstructor): void;
 }
 
 /**
