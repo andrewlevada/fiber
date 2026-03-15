@@ -24,6 +24,9 @@ node e2e/run-tests.ts --list     # List available tests
 node e2e/run-tests.ts 1 2        # Run specific tests by number
 ```
 
+The pre-commit hook runs `deno fmt` and `deno lint --fix`, then re-stages
+modified files with `git add -u`. No manual re-staging needed after commits.
+
 ## Architecture
 
 Fiber is a Chrome extension framework that hides message passing behind a
