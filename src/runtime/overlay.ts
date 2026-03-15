@@ -2,10 +2,15 @@
  * Overlay System
  *
  * Provides a Shadow DOM container for rendering UI in content scripts.
- * Uses Lit for efficient template rendering with scoped custom element registry.
+ * Supports lit-html templates and template factory functions.
  */
 
 import { render, type TemplateResult } from "lit-html";
+
+/** Content types supported by the overlay */
+type OverlayContent =
+  | TemplateResult
+  | ((root: ShadowRoot) => TemplateResult);
 
 /** Data attribute to identify fiber overlay containers */
 const OVERLAY_ATTR = "data-fiber-overlay";
@@ -16,21 +21,8 @@ let container: HTMLElement | null = null;
 /** Shadow root reference for rendering */
 let shadowRoot: ShadowRoot | null = null;
 
-/** Scoped custom element registry for this overlay (null means use global) */
-let registry: CustomElementRegistry | null = null;
-
-/** Whether scoped custom element registries are supported */
-const scopedRegistrySupported = (() => {
-  try {
-    new CustomElementRegistry();
-    return true;
-  } catch {
-    return false;
-  }
-})();
-
-/** Stored template for showOnAction toggle mode */
-let storedTemplate: TemplateResult | null = null;
+/** Stored content for showOnAction toggle mode */
+let storedContent: OverlayContent | null = null;
 
 /** Whether the toggle listener has been attached */
 let listenerAttached = false;
@@ -62,18 +54,7 @@ function ensureContainer(): ShadowRoot {
   if (container === null) {
     container = document.createElement("div");
     container.setAttribute(OVERLAY_ATTR, "");
-
-    if (scopedRegistrySupported) {
-      // Create scoped registry for custom elements (Chrome 146+)
-      registry = new CustomElementRegistry();
-      shadowRoot = container.attachShadow({
-        mode: "open",
-        customElements: registry,
-      });
-    } else {
-      // Fallback for older browsers: use global registry
-      shadowRoot = container.attachShadow({ mode: "open" });
-    }
+    shadowRoot = container.attachShadow({ mode: "open" });
 
     const styleSheet = new CSSStyleSheet();
     styleSheet.replaceSync(CONTAINER_STYLES);
@@ -86,47 +67,37 @@ function ensureContainer(): ShadowRoot {
 }
 
 /**
- * Register a custom element in the overlay's scoped registry.
- * Must be called before using the element in templates.
+ * Render content to the shadow root.
  */
-function defineElement(
-  name: string,
-  constructor: CustomElementConstructor,
-): void {
-  ensureContainer();
-  if (registry) {
-    registry.define(name, constructor);
-  } else {
-    // Fallback: use global registry, skip if already defined
-    if (!customElements.get(name)) {
-      customElements.define(name, constructor);
-    }
-  }
+function renderContent(content: OverlayContent): void {
+  const root = ensureContainer();
+  const template = typeof content === "function" ? content(root) : content;
+  render(template, root);
 }
 
 /**
- * Show the overlay with the given template.
+ * Show the overlay with the given content.
  * Creates the container if it doesn't exist, or updates content if it does.
  *
- * @param template - Lit template to render
+ * @param content - Lit template or factory function that receives ShadowRoot
  */
-function show(template: TemplateResult): void {
-  const root = ensureContainer();
+function show(content: OverlayContent): void {
+  ensureContainer();
   container!.style.display = "";
-  render(template, root);
+  renderContent(content);
 }
 
 /**
  * Set up the overlay to toggle when the extension icon is clicked.
  * The overlay starts hidden and shows/hides on each action click.
  *
- * @param template - Lit template to render when shown
+ * @param content - Lit template or factory function to render when shown
  */
-function showOnAction(template: TemplateResult): void {
+function showOnAction(content: OverlayContent): void {
   ensureContainer();
 
   container!.style.display = "none";
-  storedTemplate = template;
+  storedContent = content;
 
   if (!listenerAttached) {
     listenerAttached = true;
@@ -134,7 +105,7 @@ function showOnAction(template: TemplateResult): void {
       if (message.type === "fiber:toggle-overlay") {
         if (container!.style.display === "none") {
           container!.style.display = "";
-          if (storedTemplate) render(storedTemplate, shadowRoot!);
+          if (storedContent) renderContent(storedContent);
         } else {
           container!.style.display = "none";
         }
@@ -163,8 +134,7 @@ export function __hmrReset(): void {
   }
   container = null;
   shadowRoot = null;
-  registry = null;
-  storedTemplate = null;
+  storedContent = null;
 }
 
 /**
@@ -174,7 +144,6 @@ export const overlay = {
   show,
   showOnAction,
   hide,
-  defineElement,
 } as const;
 
 export type Overlay = typeof overlay;

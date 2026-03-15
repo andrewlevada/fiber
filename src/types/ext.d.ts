@@ -142,6 +142,38 @@ export interface StorageApi {
 }
 
 // ============================================================================
+// Scripting API
+// ============================================================================
+
+export interface ScriptingApi {
+  /**
+   * Execute a function in the page's main world context.
+   * Bypasses extension CSP restrictions on eval/new Function.
+   *
+   * Use this when you need to execute dynamically generated code that would
+   * otherwise be blocked by Content Security Policy in the content script.
+   *
+   * @param func - Function to execute (will be stringified and run in page context)
+   * @param args - Arguments to pass to the function (must be JSON-serializable)
+   * @returns The return value of the function
+   *
+   * @example
+   * ```ts
+   * // Execute code that uses new Function() - blocked in content scripts
+   * await ext.scripting.executeInMainWorld((selector, code) => {
+   *   const elements = document.querySelectorAll(selector);
+   *   const fn = new Function("element", code);
+   *   elements.forEach(el => fn(el));
+   * }, [".my-class", "element.style.display = 'none'"]);
+   * ```
+   */
+  executeInMainWorld<T, A extends unknown[]>(
+    func: (...args: A) => T,
+    args: A,
+  ): Promise<T>;
+}
+
+// ============================================================================
 // Fetch Proxy Types
 // ============================================================================
 
@@ -214,6 +246,7 @@ export type FetchFn = (
 export interface ExtApi {
   tabs: TabsApi;
   storage: StorageApi;
+  scripting: ScriptingApi;
 
   /**
    * Fetch API proxy that executes in the background script.

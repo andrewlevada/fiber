@@ -103,6 +103,27 @@ const data = await response.json();
 // Also: response.text(), response.arrayBuffer(), response.blob()
 ```
 
+### Execute in Main World
+
+Content scripts run in an isolated world with strict CSP that blocks `eval()` and
+`new Function()`. Use `executeInMainWorld` to run code in the page's context:
+
+```ts
+import { ext } from "fiber-extension";
+
+// Execute a function in the page's main world (bypasses extension CSP)
+await ext.scripting.executeInMainWorld(
+  (selector, code) => {
+    const elements = document.querySelectorAll(selector);
+    const fn = new Function("element", code);
+    elements.forEach((el) => fn(el));
+  },
+  [".my-class", "element.style.display = 'none'"],
+);
+```
+
+Requires `scripting` permission in manifest.
+
 ### Shadow DOM Overlay
 
 ```ts

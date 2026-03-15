@@ -22,10 +22,33 @@ export interface RpcClient {
   call(method: string, args: unknown[]): Promise<unknown>;
 }
 
+export interface RpcContext {
+  sender: chrome.runtime.MessageSender;
+}
+
 export type RpcHandler = (...args: unknown[]) => unknown | Promise<unknown>;
-export type RpcHandlers = Record<string, RpcHandler | Record<string, unknown>>;
+export type RpcContextHandler = (
+  ctx: RpcContext,
+  ...args: unknown[]
+) => unknown | Promise<unknown>;
+export type RpcHandlers = Record<
+  string,
+  RpcHandler | RpcContextHandler | Record<string, unknown>
+>;
 
 const RPC_TIMEOUT_MS = 30_000;
+
+/** Symbol to mark handlers that need RPC context (sender info) */
+export const needsContext = Symbol("needsContext");
+
+/** Mark a handler as needing RPC context (sender info) */
+export function withContext(
+  handler: RpcContextHandler,
+): RpcContextHandler & { [needsContext]: true } {
+  const wrapped = handler as RpcContextHandler & { [needsContext]: true };
+  wrapped[needsContext] = true;
+  return wrapped;
+}
 
 /**
  * Resolve nested handler paths like "tabs.query" -> handlers.tabs.query
@@ -121,8 +144,15 @@ export function createRpcServer(handlers: RpcHandlers): void {
         return true;
       }
 
+      // Check if handler needs context (sender info)
+      const ctx: RpcContext = { sender };
+      const callHandler = () =>
+        (handler as { [needsContext]?: boolean })[needsContext]
+          ? (handler as RpcContextHandler)(ctx, ...msg.args)
+          : handler(...msg.args);
+
       Promise.resolve()
-        .then(() => handler(...msg.args))
+        .then(callHandler)
         .then((result) => sendResponse({ id: msg.id, result }))
         .catch((err) =>
           sendResponse({

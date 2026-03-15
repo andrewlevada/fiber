@@ -5,7 +5,7 @@
  * This script runs in the service worker context (MV3).
  */
 
-import { createRpcServer, RpcHandlers } from "./rpc.ts";
+import { createRpcServer, RpcHandlers, withContext, type RpcContext } from "./rpc.ts";
 
 // ============================================================================
 // Fetch Response Cache
@@ -185,6 +185,45 @@ async function handleFetchBody(...args: unknown[]): Promise<unknown> {
 }
 
 // ============================================================================
+// Scripting Handlers
+// ============================================================================
+
+/**
+ * Execute a function in the page's main world context.
+ * Bypasses both extension CSP and page CSP restrictions on eval/new Function.
+ * Uses the sender's tab ID automatically.
+ *
+ * RPC signature: scripting.executeInMainWorld(func: string, args: unknown[])
+ */
+const handleExecuteInMainWorld = withContext(
+  async (ctx: RpcContext, ...rpcArgs: unknown[]): Promise<unknown> => {
+    const [func, args] = rpcArgs as [string, unknown[]];
+    const tabId = ctx.sender.tab?.id;
+
+    if (!tabId) {
+      throw new Error("Cannot determine tab ID from sender");
+    }
+
+    // Pass the function as a string and evaluate it IN the main world
+    // This way new Function() runs in the page context, not extension context
+    const injectedFn = (funcString: string, funcArgs: unknown[]) => {
+      // This code runs in the page's main world - no extension CSP!
+      const fn = new Function(`return (${funcString}).apply(null, arguments)`);
+      return fn(...funcArgs);
+    };
+
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      func: injectedFn as () => unknown,
+      args: [func, args],
+    });
+
+    return results[0]?.result;
+  },
+);
+
+// ============================================================================
 // RPC Server Setup
 // ============================================================================
 
@@ -219,6 +258,9 @@ const handlers: RpcHandlers = {
     local: bindChromeMethods(chrome.storage.local),
     sync: bindChromeMethods(chrome.storage.sync),
     session: bindChromeMethods(chrome.storage.session),
+  },
+  scripting: {
+    executeInMainWorld: handleExecuteInMainWorld,
   },
 
   // Fetch proxy handlers
