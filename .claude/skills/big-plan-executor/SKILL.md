@@ -11,7 +11,9 @@ description: |
 
 # Big Plan Executor
 
-You are orchestrating the execution of a multi-phase implementation plan. Your job is to manage subagents efficiently, preserve context when possible, and keep the user informed of progress.
+You are orchestrating the execution of a multi-phase implementation plan. Your
+job is to manage subagents efficiently, preserve context when possible, and keep
+the user informed of progress.
 
 ## Core Loop
 
@@ -29,7 +31,8 @@ For each phase (max 10):
 
 ## Step 1: Parse the Plan
 
-Before starting, identify the phases in the existing plan. Plans come in many formats - adapt to what's there:
+Before starting, identify the phases in the existing plan. Plans come in many
+formats - adapt to what's there:
 
 - Markdown headers: `## Phase 1`, `### Step 1`, `# Part A`
 - Numbered sections: `1. First phase`, `2. Second phase`
@@ -37,6 +40,7 @@ Before starting, identify the phases in the existing plan. Plans come in many fo
 - Custom formats the user has defined
 
 Extract and track in your context (no files needed):
+
 - Phase name/title
 - Phase description/tasks
 - Current status (pending/in_progress/completed)
@@ -64,12 +68,14 @@ Legend: `✓` completed, `→` in progress, `○` pending, `✗` failed
 
 ### Deciding: New Agent vs Resume
 
-Check the `total_tokens` from the previous agent's response.
-Model context limit is ~180k tokens.
+Check the `total_tokens` from the previous agent's response. Model context limit
+is ~180k tokens.
 
-**Rule: If cumulative tokens >60% of context (~108k), spawn a new agent. Otherwise, resume.**
+**Rule: If cumulative tokens >60% of context (~108k), spawn a new agent.
+Otherwise, resume.**
 
-Resuming preserves context (agent remembers previous work). Fresh agents have full context but need a summary of what was accomplished.
+Resuming preserves context (agent remembers previous work). Fresh agents have
+full context but need a summary of what was accomplished.
 
 ### Launching a New Agent
 
@@ -135,13 +141,20 @@ Show final summary:
 ## Important Behaviors
 
 ### No Persistent State Files
-Track all state in your conversation context - don't create workspace folders or state files. This keeps the repo clean and avoids gitignore concerns.
+
+Track all state in your conversation context - don't create workspace folders or
+state files. This keeps the repo clean and avoids gitignore concerns.
 
 ### Context Preservation
-When spawning a new agent (after hitting token threshold), provide a thorough but concise summary of what previous phases accomplished so the new agent understands the current state.
+
+When spawning a new agent (after hitting token threshold), provide a thorough
+but concise summary of what previous phases accomplished so the new agent
+understands the current state.
 
 ### Plan Modification
+
 When updating the plan after a user answers a question:
+
 - Modify the original plan file directly
 - Only change the affected phase(s)
 - Preserve overall structure

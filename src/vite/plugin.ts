@@ -6,9 +6,10 @@
  * Prod mode: `vite build` - standard Rollup build with esbuild post-processing.
  */
 
-import type { Plugin, ResolvedConfig, ViteDevServer } from 'vite';
-import path from 'path';
-import { build as esbuild } from 'esbuild';
+import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
+import path from "path";
+import { build as esbuild } from "esbuild";
+import process from "node:process";
 
 // ============================================================================
 // Manifest Types (subset of chrome.runtime.ManifestV3)
@@ -16,48 +17,48 @@ import { build as esbuild } from 'esbuild';
 
 /** Chrome extension permissions */
 type ManifestPermission =
-  | 'activeTab'
-  | 'alarms'
-  | 'bookmarks'
-  | 'browsingData'
-  | 'clipboardRead'
-  | 'clipboardWrite'
-  | 'contextMenus'
-  | 'cookies'
-  | 'declarativeContent'
-  | 'downloads'
-  | 'geolocation'
-  | 'history'
-  | 'identity'
-  | 'idle'
-  | 'management'
-  | 'notifications'
-  | 'pageCapture'
-  | 'power'
-  | 'privacy'
-  | 'scripting'
-  | 'search'
-  | 'sessions'
-  | 'storage'
-  | 'system.cpu'
-  | 'system.memory'
-  | 'system.storage'
-  | 'tabCapture'
-  | 'tabs'
-  | 'topSites'
-  | 'tts'
-  | 'ttsEngine'
-  | 'unlimitedStorage'
-  | 'webNavigation'
-  | 'webRequest';
+  | "activeTab"
+  | "alarms"
+  | "bookmarks"
+  | "browsingData"
+  | "clipboardRead"
+  | "clipboardWrite"
+  | "contextMenus"
+  | "cookies"
+  | "declarativeContent"
+  | "downloads"
+  | "geolocation"
+  | "history"
+  | "identity"
+  | "idle"
+  | "management"
+  | "notifications"
+  | "pageCapture"
+  | "power"
+  | "privacy"
+  | "scripting"
+  | "search"
+  | "sessions"
+  | "storage"
+  | "system.cpu"
+  | "system.memory"
+  | "system.storage"
+  | "tabCapture"
+  | "tabs"
+  | "topSites"
+  | "tts"
+  | "ttsEngine"
+  | "unlimitedStorage"
+  | "webNavigation"
+  | "webRequest";
 
 /** Content script configuration */
 interface ManifestContentScript {
   matches: string[];
   js?: string[];
   css?: string[];
-  run_at?: 'document_start' | 'document_end' | 'document_idle';
-  world?: 'ISOLATED' | 'MAIN';
+  run_at?: "document_start" | "document_end" | "document_idle";
+  world?: "ISOLATED" | "MAIN";
 }
 
 /** Manifest V3 structure (partial) */
@@ -70,7 +71,7 @@ interface ManifestV3 {
   host_permissions?: string[];
   background?: {
     service_worker: string;
-    type?: 'module';
+    type?: "module";
   };
   content_scripts?: ManifestContentScript[];
   icons?: Record<string, string>;
@@ -102,30 +103,34 @@ export interface FiberOptions {
  * Build the manifest.json from user options and defaults.
  * Dev mode auto-adds 'scripting' permission for HMR.
  */
-function buildManifest(partial: Partial<ManifestV3>, isDev: boolean): ManifestV3 {
+function buildManifest(
+  partial: Partial<ManifestV3>,
+  isDev: boolean,
+): ManifestV3 {
   const hostPermissions = partial.host_permissions ?? [];
-  const contentMatches = partial.content_scripts?.[0]?.matches ?? hostPermissions;
+  const contentMatches = partial.content_scripts?.[0]?.matches ??
+    hostPermissions;
 
   // Dev mode needs scripting permission for HMR reload
   const permissions: ManifestPermission[] = [...(partial.permissions ?? [])];
-  if (isDev && !permissions.includes('scripting')) {
-    permissions.push('scripting');
+  if (isDev && !permissions.includes("scripting")) {
+    permissions.push("scripting");
   }
 
   // Build base manifest
   const manifest: ManifestV3 = {
     manifest_version: 3,
-    name: partial.name ?? 'Fiber Extension',
-    version: partial.version ?? '1.0.0',
+    name: partial.name ?? "Fiber Extension",
+    version: partial.version ?? "1.0.0",
     permissions,
     host_permissions: hostPermissions,
     background: {
-      service_worker: 'background.js',
+      service_worker: "background.js",
     },
     content_scripts: [{
-      matches: contentMatches.length > 0 ? contentMatches : ['<all_urls>'],
-      js: ['content.js'],
-      run_at: 'document_idle',
+      matches: contentMatches.length > 0 ? contentMatches : ["<all_urls>"],
+      js: ["content.js"],
+      run_at: "document_idle",
     }],
   };
 
@@ -151,7 +156,7 @@ function buildManifest(partial: Partial<ManifestV3>, isDev: boolean): ManifestV3
  * @param devServerPort - Port for dev server (unused, kept for API consistency)
  */
 function generateContentEntry(_isDev: boolean, _devServerPort: number): string {
-  const appPath = path.resolve('src/app.ts').replace(/\\/g, '/');
+  const appPath = path.resolve("src/app.ts").replace(/\\/g, "/");
   return `import '${appPath}';`;
 }
 
@@ -160,7 +165,10 @@ function generateContentEntry(_isDev: boolean, _devServerPort: number): string {
  * @param isDev - Whether in dev mode (includes HMR handler)
  * @param devServerPort - Dev server port for polling
  */
-function generateBackgroundEntry(isDev: boolean, devServerPort: number): string {
+function generateBackgroundEntry(
+  isDev: boolean,
+  devServerPort: number,
+): string {
   const hmrHandler = isDev
     ? `
 // HMR: Poll dev server for changes and reload extension
@@ -182,7 +190,7 @@ async function checkForUpdates() {
   } catch {}
 }
 setInterval(checkForUpdates, 1000);`
-    : '';
+    : "";
   return `import 'fiber-extension/runtime/background';${hmrHandler}`;
 }
 
@@ -197,9 +205,9 @@ setInterval(checkForUpdates, 1000);`
 async function bundleWithEsbuild(
   outDir: string,
   devServerPort: number,
-  manifestPartial: Partial<ManifestV3>
+  manifestPartial: Partial<ManifestV3>,
 ): Promise<void> {
-  const fs = await import('fs/promises');
+  const fs = await import("fs/promises");
   await fs.mkdir(outDir, { recursive: true });
 
   // Bundle content.js
@@ -207,11 +215,11 @@ async function bundleWithEsbuild(
     stdin: {
       contents: generateContentEntry(true, devServerPort),
       resolveDir: process.cwd(),
-      loader: 'ts',
+      loader: "ts",
     },
     bundle: true,
-    format: 'iife',
-    outfile: path.join(outDir, 'content.js'),
+    format: "iife",
+    outfile: path.join(outDir, "content.js"),
   });
 
   // Bundle background.js
@@ -219,18 +227,18 @@ async function bundleWithEsbuild(
     stdin: {
       contents: generateBackgroundEntry(true, devServerPort),
       resolveDir: process.cwd(),
-      loader: 'ts',
+      loader: "ts",
     },
     bundle: true,
-    format: 'iife',
-    outfile: path.join(outDir, 'background.js'),
+    format: "iife",
+    outfile: path.join(outDir, "background.js"),
   });
 
   // Write manifest.json
   const manifest = buildManifest(manifestPartial, true);
   await fs.writeFile(
-    path.join(outDir, 'manifest.json'),
-    JSON.stringify(manifest, null, 2)
+    path.join(outDir, "manifest.json"),
+    JSON.stringify(manifest, null, 2),
   );
 }
 
@@ -266,17 +274,17 @@ export function fiberExtension(options: FiberOptions): Plugin {
   let _resolvedConfig: ResolvedConfig;
 
   return {
-    name: 'fiber-extension',
+    name: "fiber-extension",
 
     config(_, { command }) {
       // Dev mode when running `vite dev` (command === 'serve')
-      isDev = command === 'serve';
+      isDev = command === "serve";
 
       // In dev mode, we build with esbuild via configureServer
       if (isDev) {
         return {
           build: {
-            outDir: 'dist',
+            outDir: "dist",
           },
         };
       }
@@ -286,20 +294,20 @@ export function fiberExtension(options: FiberOptions): Plugin {
         build: {
           rollupOptions: {
             input: {
-              content: 'virtual:fiber/content',
-              background: 'virtual:fiber/background',
+              content: "virtual:fiber/content",
+              background: "virtual:fiber/background",
             },
             output: {
-              entryFileNames: '[name].js',
-              chunkFileNames: '[name].js',
+              entryFileNames: "[name].js",
+              chunkFileNames: "[name].js",
             },
             // Disable code splitting - each entry bundles all its dependencies.
             // This is required because content scripts can't import external files.
-            preserveEntrySignatures: 'strict',
+            preserveEntrySignatures: "strict",
           },
-          outDir: 'dist',
+          outDir: "dist",
           emptyOutDir: true,
-        }
+        },
       };
     },
 
@@ -314,58 +322,64 @@ export function fiberExtension(options: FiberOptions): Plugin {
       let lastBuildTimestamp = Date.now();
 
       // Serve timestamp endpoint for extension polling
-      server.middlewares.use('/__fiber_timestamp', (_req, res) => {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Content-Type', 'text/plain');
+      server.middlewares.use("/__fiber_timestamp", (_req, res) => {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Content-Type", "text/plain");
         res.end(String(lastBuildTimestamp));
       });
 
       // Initial build on server start
-      server.httpServer?.once('listening', async () => {
-        console.log('[fiber] Building extension...');
+      server.httpServer?.once("listening", async () => {
+        console.log("[fiber] Building extension...");
         try {
           await bundleWithEsbuild(outDir, port, options.manifest);
-          console.log('[fiber] Extension built. Load dist/ folder in chrome://extensions');
+          console.log(
+            "[fiber] Extension built. Load dist/ folder in chrome://extensions",
+          );
         } catch (err) {
-          console.error('[fiber] Initial build failed:', err);
+          console.error("[fiber] Initial build failed:", err);
         }
       });
 
       // Watch src/ and rebuild on changes
-      const srcDir = path.resolve('src');
-      server.watcher.on('change', async (file: string) => {
+      const srcDir = path.resolve("src");
+      server.watcher.on("change", async (file: string) => {
         if (!file.startsWith(srcDir)) return;
 
-        console.log(`[fiber] ${path.relative(process.cwd(), file)} changed, rebuilding...`);
+        console.log(
+          `[fiber] ${
+            path.relative(process.cwd(), file)
+          } changed, rebuilding...`,
+        );
         try {
           await bundleWithEsbuild(outDir, port, options.manifest);
           lastBuildTimestamp = Date.now();
-          console.log('[fiber] Rebuild complete');
+          console.log("[fiber] Rebuild complete");
         } catch (err) {
-          console.error('[fiber] Rebuild failed:', err);
+          console.error("[fiber] Rebuild failed:", err);
         }
       });
     },
 
     handleHotUpdate({ file, server }) {
-      const srcDir = path.resolve('src');
+      const srcDir = path.resolve("src");
       if (!file.startsWith(srcDir)) return;
 
       // Tell all connected clients to update
       // The content script's HMR client listens for 'update' messages
-      server.ws.send({ type: 'update', updates: [] });
+      server.ws.send({ type: "update", updates: [] });
 
       // Return empty array to prevent Vite's default HMR
       return [];
     },
 
     resolveId(id: string) {
-      if (id.startsWith('virtual:fiber/')) {
+      if (id.startsWith("virtual:fiber/")) {
         return id;
       }
       // Allow importing 'fiber-extension' to get runtime exports
-      if (id === 'fiber-extension') {
-        return 'virtual:fiber/runtime';
+      if (id === "fiber-extension") {
+        return "virtual:fiber/runtime";
       }
       return undefined;
     },
@@ -373,19 +387,19 @@ export function fiberExtension(options: FiberOptions): Plugin {
     load(id: string) {
       // Virtual modules are used for production builds (vite build)
       // Dev mode uses bundleWithEsbuild() directly via configureServer
-      if (id === 'virtual:fiber/content') {
+      if (id === "virtual:fiber/content") {
         return generateContentEntry(isDev, devServerPort);
       }
 
-      if (id === 'virtual:fiber/background') {
+      if (id === "virtual:fiber/background") {
         return generateBackgroundEntry(isDev, devServerPort);
       }
 
-      if (id === 'virtual:fiber/runtime') {
+      if (id === "virtual:fiber/runtime") {
         return [
           `export { ext } from 'fiber-extension/runtime/ext';`,
           `export { overlay } from 'fiber-extension/runtime/overlay';`,
-        ].join('\n');
+        ].join("\n");
       }
 
       return undefined;
@@ -394,21 +408,21 @@ export function fiberExtension(options: FiberOptions): Plugin {
     generateBundle() {
       const manifest = buildManifest(options.manifest, isDev);
       this.emitFile({
-        type: 'asset',
-        fileName: 'manifest.json',
+        type: "asset",
+        fileName: "manifest.json",
         source: JSON.stringify(manifest, null, 2),
       });
     },
 
     buildStart() {
       if (!options.manifest) {
-        this.warn('No manifest options provided. Using defaults.');
+        this.warn("No manifest options provided. Using defaults.");
       }
     },
 
     buildEnd(error: Error | undefined) {
       if (error) {
-        console.error('[fiber] Build failed:', error.message);
+        console.error("[fiber] Build failed:", error.message);
       }
     },
 
@@ -416,13 +430,13 @@ export function fiberExtension(options: FiberOptions): Plugin {
       // Content scripts can't use ES module imports - they need everything bundled.
       // Re-bundle content.js with esbuild to inline all dependencies as IIFE.
       const outDir = _resolvedConfig.build.outDir;
-      const contentPath = path.join(outDir, 'content.js');
-      const backgroundPath = path.join(outDir, 'background.js');
+      const contentPath = path.join(outDir, "content.js");
+      const backgroundPath = path.join(outDir, "background.js");
 
       await esbuild({
         entryPoints: [contentPath],
         bundle: true,
-        format: 'iife',
+        format: "iife",
         outfile: contentPath,
         allowOverwrite: true,
         minify: !isDev,
@@ -432,20 +446,23 @@ export function fiberExtension(options: FiberOptions): Plugin {
       await esbuild({
         entryPoints: [backgroundPath],
         bundle: true,
-        format: 'iife',
+        format: "iife",
         outfile: backgroundPath,
         allowOverwrite: true,
         minify: !isDev,
       });
 
       // Clean up any chunk files that are no longer needed
-      const fs = await import('fs/promises');
+      const fs = await import("fs/promises");
       const files = await fs.readdir(outDir);
       for (const file of files) {
-        if (file.endsWith('.js') && file !== 'content.js' && file !== 'background.js') {
+        if (
+          file.endsWith(".js") && file !== "content.js" &&
+          file !== "background.js"
+        ) {
           await fs.unlink(path.join(outDir, file));
         }
       }
-    }
+    },
   };
 }

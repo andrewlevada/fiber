@@ -5,10 +5,10 @@
  * Uses Lit for efficient template rendering.
  */
 
-import { render, type TemplateResult } from 'lit-html';
+import { render, type TemplateResult } from "lit-html";
 
 /** Data attribute to identify fiber overlay containers */
-const OVERLAY_ATTR = 'data-fiber-overlay';
+const OVERLAY_ATTR = "data-fiber-overlay";
 
 /** Container element reference */
 let container: HTMLElement | null = null;
@@ -54,16 +54,16 @@ const CONTAINER_STYLES = `
 function attach(template: TemplateResult): void {
   if (container !== null) {
     throw new Error(
-      'overlay.attach() was already called. Call overlay.detach() first to re-attach.'
+      "overlay.attach() was already called. Call overlay.detach() first to re-attach.",
     );
   }
 
   // Create container div with shadow DOM
   // Using a div instead of custom element because customElements is not
   // available in Chrome extension content scripts (isolated world)
-  container = document.createElement('div');
-  container.setAttribute(OVERLAY_ATTR, '');
-  shadowRoot = container.attachShadow({ mode: 'open' });
+  container = document.createElement("div");
+  container.setAttribute(OVERLAY_ATTR, "");
+  shadowRoot = container.attachShadow({ mode: "open" });
 
   // Add styles
   const styleSheet = new CSSStyleSheet();
@@ -86,7 +86,7 @@ function attach(template: TemplateResult): void {
 function renderOverlay(template: TemplateResult): void {
   if (shadowRoot === null) {
     throw new Error(
-      'overlay.render() called before overlay.attach(). Call attach() first.'
+      "overlay.render() called before overlay.attach(). Call attach() first.",
     );
   }
 
@@ -113,7 +113,7 @@ function show(): void {
   if (isVisible) return;
 
   isVisible = true;
-  container.style.display = '';
+  container.style.display = "";
   render(storedTemplate, shadowRoot!);
 }
 
@@ -125,7 +125,7 @@ function hide(): void {
   if (!isVisible) return;
 
   isVisible = false;
-  container.style.display = 'none';
+  container.style.display = "none";
 }
 
 /**
@@ -148,17 +148,17 @@ function toggle(): void {
 function attachOnAction(template: TemplateResult): void {
   if (container !== null) {
     throw new Error(
-      'overlay.attachOnAction() was already called. Call overlay.detach() first to re-attach.'
+      "overlay.attachOnAction() was already called. Call overlay.detach() first to re-attach.",
     );
   }
 
   storedTemplate = template;
 
   // Create container div with shadow DOM
-  container = document.createElement('div');
-  container.setAttribute(OVERLAY_ATTR, '');
-  container.style.display = 'none'; // Start hidden
-  shadowRoot = container.attachShadow({ mode: 'open' });
+  container = document.createElement("div");
+  container.setAttribute(OVERLAY_ATTR, "");
+  container.style.display = "none"; // Start hidden
+  shadowRoot = container.attachShadow({ mode: "open" });
 
   // Add styles
   const styleSheet = new CSSStyleSheet();
@@ -170,7 +170,7 @@ function attachOnAction(template: TemplateResult): void {
 
   // Listen for toggle messages from background script
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'fiber:toggle-overlay') {
+    if (message.type === "fiber:toggle-overlay") {
       toggle();
     }
     return undefined;

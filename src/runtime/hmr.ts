@@ -17,7 +17,7 @@ export function initHmr(serverUrl: string): void {
   const ws = new WebSocket(serverUrl);
 
   ws.onopen = () => {
-    console.log('[fiber] HMR connected');
+    console.log("[fiber] HMR connected");
   };
 
   ws.onmessage = (event) => {
@@ -29,22 +29,22 @@ export function initHmr(serverUrl: string): void {
     }
 
     // Vite sends 'update' messages when files change
-    if (msg.type !== 'update') return;
+    if (msg.type !== "update") return;
 
-    console.log('[fiber] Update detected, reloading extension...');
+    console.log("[fiber] Update detected, reloading extension...");
 
     // Request background to reload extension, then refresh page
-    chrome.runtime.sendMessage({ type: 'fiber:ext-reload' });
+    chrome.runtime.sendMessage({ type: "fiber:ext-reload" });
 
     // Give extension time to reload, then refresh page to get new content script
     setTimeout(() => location.reload(), 300);
   };
 
   ws.onerror = () => {
-    console.warn('[fiber] HMR WebSocket error - live reload unavailable');
+    console.warn("[fiber] HMR WebSocket error - live reload unavailable");
   };
 
   ws.onclose = () => {
-    console.warn('[fiber] HMR connection closed');
+    console.warn("[fiber] HMR connection closed");
   };
 }

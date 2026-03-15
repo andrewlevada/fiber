@@ -2,7 +2,7 @@
  * TypeScript Definitions for Overlay System
  */
 
-import type { TemplateResult } from 'lit-html';
+import type { TemplateResult } from "lit-html";
 
 /**
  * Overlay API for content scripts.

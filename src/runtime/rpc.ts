@@ -8,7 +8,7 @@
 // Types
 export interface RpcRequest {
   id: string;
-  method: string;      // e.g., "tabs.query"
+  method: string; // e.g., "tabs.query"
   args: unknown[];
 }
 
@@ -32,17 +32,17 @@ const RPC_TIMEOUT_MS = 30_000;
  */
 export function resolveHandler(
   handlers: Record<string, unknown>,
-  method: string
+  method: string,
 ): RpcHandler | undefined {
-  const parts = method.split('.');
+  const parts = method.split(".");
   let current: unknown = handlers;
 
   for (const part of parts) {
-    if (current == null || typeof current !== 'object') return undefined;
+    if (current == null || typeof current !== "object") return undefined;
     current = (current as Record<string, unknown>)[part];
   }
 
-  return typeof current === 'function' ? (current as RpcHandler) : undefined;
+  return typeof current === "function" ? (current as RpcHandler) : undefined;
 }
 
 /**
@@ -58,14 +58,18 @@ export function createRpcClient(): RpcClient {
       // Create a timeout promise that rejects after RPC_TIMEOUT_MS
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
-          reject(new Error(`RPC timeout: ${method} did not respond within ${RPC_TIMEOUT_MS}ms`));
+          reject(
+            new Error(
+              `RPC timeout: ${method} did not respond within ${RPC_TIMEOUT_MS}ms`,
+            ),
+          );
         }, RPC_TIMEOUT_MS);
       });
 
       // Race the actual request against the timeout
       const response = await Promise.race([
         chrome.runtime.sendMessage(request) as Promise<RpcResponse>,
-        timeoutPromise
+        timeoutPromise,
       ]);
 
       if (response.error) {
@@ -75,7 +79,7 @@ export function createRpcClient(): RpcClient {
       }
 
       return response.result;
-    }
+    },
   };
 }
 
@@ -85,37 +89,52 @@ export function createRpcClient(): RpcClient {
  */
 export function createRpcServer(handlers: RpcHandlers): void {
   chrome.runtime.onMessage.addListener(
-    (msg: RpcRequest, sender, sendResponse: (response: RpcResponse) => void) => {
+    (
+      msg: RpcRequest,
+      sender,
+      sendResponse: (response: RpcResponse) => void,
+    ) => {
       // Validate sender is from this extension - fail fast with clear error
       if (sender.id !== chrome.runtime.id) {
-        sendResponse({ id: msg.id, error: { message: 'RPC rejected: invalid sender' } });
+        sendResponse({
+          id: msg.id,
+          error: { message: "RPC rejected: invalid sender" },
+        });
         return true;
       }
 
       // Validate message structure
       if (!msg.id || !msg.method || !Array.isArray(msg.args)) {
-        sendResponse({ id: msg.id ?? '', error: { message: 'RPC rejected: invalid message format' } });
+        sendResponse({
+          id: msg.id ?? "",
+          error: { message: "RPC rejected: invalid message format" },
+        });
         return true;
       }
 
       const handler = resolveHandler(handlers, msg.method);
       if (!handler) {
-        sendResponse({ id: msg.id, error: { message: `Unknown method: ${msg.method}` } });
+        sendResponse({
+          id: msg.id,
+          error: { message: `Unknown method: ${msg.method}` },
+        });
         return true;
       }
 
       Promise.resolve()
         .then(() => handler(...msg.args))
-        .then(result => sendResponse({ id: msg.id, result }))
-        .catch(err => sendResponse({
-          id: msg.id,
-          error: {
-            message: err instanceof Error ? err.message : String(err),
-            stack: err instanceof Error ? err.stack : undefined
-          }
-        }));
+        .then((result) => sendResponse({ id: msg.id, result }))
+        .catch((err) =>
+          sendResponse({
+            id: msg.id,
+            error: {
+              message: err instanceof Error ? err.message : String(err),
+              stack: err instanceof Error ? err.stack : undefined,
+            },
+          })
+        );
 
       return true; // async response
-    }
+    },
   );
 }

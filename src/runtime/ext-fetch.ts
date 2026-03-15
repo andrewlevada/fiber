@@ -6,8 +6,8 @@
  * streamed back via RPC when consumed.
  */
 
-import type { FetchResponse, FetchFn } from '../types/ext';
-import type { RpcClient } from './rpc';
+import type { FetchFn, FetchResponse } from "../types/ext.d.ts";
+import type { RpcClient } from "./rpc.ts";
 
 /** Metadata returned from background after initiating fetch */
 interface FetchMetadata {
@@ -19,7 +19,7 @@ interface FetchMetadata {
 }
 
 /** Body read modes supported by fetchBody RPC */
-type BodyMode = 'text' | 'json' | 'arrayBuffer' | 'blob';
+type BodyMode = "text" | "json" | "arrayBuffer" | "blob";
 
 /** Serializable RequestInit for RPC transport */
 interface SerializableRequestInit {
@@ -41,7 +41,9 @@ interface SerializableRequestInit {
  * Convert RequestInit to a serializable format for RPC transport.
  * Headers are normalized to a plain object, body to string.
  */
-function serializeInit(init?: RequestInit): SerializableRequestInit | undefined {
+function serializeInit(
+  init?: RequestInit,
+): SerializableRequestInit | undefined {
   if (!init) return undefined;
 
   const serialized: SerializableRequestInit = {};
@@ -75,16 +77,16 @@ function serializeInit(init?: RequestInit): SerializableRequestInit | undefined 
 
   // Serialize body to string (only string bodies supported for now)
   if (init.body !== undefined) {
-    if (typeof init.body === 'string') {
+    if (typeof init.body === "string") {
       serialized.body = init.body;
     } else {
-      throw new Error('ext.fetch only supports string request bodies');
+      throw new Error("ext.fetch only supports string request bodies");
     }
   }
 
   // AbortSignal cannot be serialized
   if (init.signal) {
-    console.warn('ext.fetch: AbortSignal is not supported and will be ignored');
+    console.warn("ext.fetch: AbortSignal is not supported and will be ignored");
   }
 
   return serialized;
@@ -105,44 +107,61 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 /**
  * Creates a Response proxy that lazily fetches body via RPC.
  */
-function createResponseProxy(rpc: RpcClient, meta: FetchMetadata): FetchResponse {
+function createResponseProxy(
+  rpc: RpcClient,
+  meta: FetchMetadata,
+): FetchResponse {
   let bodyConsumed = false;
 
-  const consumeBody = async <T>(mode: BodyMode, transform: (data: unknown) => T): Promise<T> => {
+  const consumeBody = async <T>(
+    mode: BodyMode,
+    transform: (data: unknown) => T,
+  ): Promise<T> => {
     if (bodyConsumed) {
-      throw new Error('Body has already been consumed');
+      throw new Error("Body has already been consumed");
     }
     bodyConsumed = true;
 
-    const result = await rpc.call('fetchBody', [meta.id, mode]);
+    const result = await rpc.call("fetchBody", [meta.id, mode]);
     return transform(result);
   };
 
   return {
-    get ok() { return meta.ok; },
-    get status() { return meta.status; },
-    get statusText() { return meta.statusText; },
-    get headers() { return meta.headers; },
+    get ok() {
+      return meta.ok;
+    },
+    get status() {
+      return meta.status;
+    },
+    get statusText() {
+      return meta.statusText;
+    },
+    get headers() {
+      return meta.headers;
+    },
 
     text(): Promise<string> {
-      return consumeBody('text', data => data as string);
+      return consumeBody("text", (data) => data as string);
     },
 
     json(): Promise<unknown> {
-      return consumeBody('json', data => data);
+      return consumeBody("json", (data) => data);
     },
 
     arrayBuffer(): Promise<ArrayBuffer> {
-      return consumeBody('arrayBuffer', data => base64ToArrayBuffer(data as string));
+      return consumeBody(
+        "arrayBuffer",
+        (data) => base64ToArrayBuffer(data as string),
+      );
     },
 
     blob(): Promise<Blob> {
-      return consumeBody('blob', data => {
+      return consumeBody("blob", (data) => {
         const { base64, type } = data as { base64: string; type: string };
         const buffer = base64ToArrayBuffer(base64);
         return new Blob([buffer], { type });
       });
-    }
+    },
   };
 }
 
@@ -150,11 +169,17 @@ function createResponseProxy(rpc: RpcClient, meta: FetchMetadata): FetchResponse
  * Creates a fetch proxy that executes requests in the background script.
  */
 export function createFetchProxy(rpc: RpcClient): FetchFn {
-  return async (input: string | URL, init?: RequestInit): Promise<FetchResponse> => {
+  return async (
+    input: string | URL,
+    init?: RequestInit,
+  ): Promise<FetchResponse> => {
     const url = input instanceof URL ? input.href : input;
     const serializedInit = serializeInit(init);
 
-    const meta = await rpc.call('fetch', [url, serializedInit]) as FetchMetadata;
+    const meta = await rpc.call("fetch", [
+      url,
+      serializedInit,
+    ]) as FetchMetadata;
     return createResponseProxy(rpc, meta);
   };
 }

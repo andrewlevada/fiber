@@ -34,7 +34,7 @@ export interface Tab {
   lastAccessed?: number;
 }
 
-export type TabStatus = 'unloaded' | 'loading' | 'complete';
+export type TabStatus = "unloaded" | "loading" | "complete";
 
 export interface MutedInfo {
   muted: boolean;
@@ -42,7 +42,7 @@ export interface MutedInfo {
   extensionId?: string;
 }
 
-export type MutedInfoReason = 'user' | 'capture' | 'extension';
+export type MutedInfoReason = "user" | "capture" | "extension";
 
 export interface QueryInfo {
   active?: boolean;
@@ -63,7 +63,7 @@ export interface QueryInfo {
   windowType?: WindowType;
 }
 
-export type WindowType = 'normal' | 'popup' | 'panel' | 'app' | 'devtools';
+export type WindowType = "normal" | "popup" | "panel" | "app" | "devtools";
 
 export interface CreateProperties {
   windowId?: number;
@@ -98,9 +98,15 @@ export interface TabsApi {
   get(tabId: number): Promise<Tab>;
   getCurrent(): Promise<Tab | undefined>;
   create(createProperties: CreateProperties): Promise<Tab>;
-  update(tabId: number, updateProperties: UpdateProperties): Promise<Tab | undefined>;
+  update(
+    tabId: number,
+    updateProperties: UpdateProperties,
+  ): Promise<Tab | undefined>;
   update(updateProperties: UpdateProperties): Promise<Tab | undefined>;
-  move(tabIds: number | number[], moveProperties: MoveProperties): Promise<Tab | Tab[]>;
+  move(
+    tabIds: number | number[],
+    moveProperties: MoveProperties,
+  ): Promise<Tab | Tab[]>;
   reload(tabId?: number, reloadProperties?: ReloadProperties): Promise<void>;
   remove(tabIds: number | number[]): Promise<void>;
   duplicate(tabId: number): Promise<Tab | undefined>;
@@ -114,7 +120,9 @@ export interface TabsApi {
 // ============================================================================
 
 export interface StorageArea {
-  get(keys?: string | string[] | Record<string, unknown> | null): Promise<Record<string, unknown>>;
+  get(
+    keys?: string | string[] | Record<string, unknown> | null,
+  ): Promise<Record<string, unknown>>;
   getBytesInUse(keys?: string | string[] | null): Promise<number>;
   set(items: Record<string, unknown>): Promise<void>;
   remove(keys: string | string[]): Promise<void>;
@@ -130,7 +138,7 @@ export interface StorageApi {
   local: StorageArea;
   sync: StorageArea;
   session: StorageArea;
-  managed: Pick<StorageArea, 'get' | 'getBytesInUse'>;
+  managed: Pick<StorageArea, "get" | "getBytesInUse">;
 }
 
 // ============================================================================
@@ -196,7 +204,7 @@ export interface FetchResponse {
  */
 export type FetchFn = (
   input: string | URL,
-  init?: RequestInit
+  init?: RequestInit,
 ) => Promise<FetchResponse>;
 
 // ============================================================================

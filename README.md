@@ -1,18 +1,23 @@
 # Fiber
 
-Chrome extension framework that improves developer enxipience. Call Chrome APIs and render UI from the same code. Here is a quick snippet:
+Chrome extension framework that improves developer enxipience. Call Chrome APIs
+and render UI from the same code. Here is a quick snippet:
 
 ```ts
-import { ext, overlay } from 'fiber-extension';
-import { html } from 'lit';
+import { ext, overlay } from "fiber-extension";
+import { html } from "lit";
 
-const response = await ext.fetch('https://api.example.com/data');
+const response = await ext.fetch("https://api.example.com/data");
 const data = await response.json();
 
-overlay.attach(html`<div>Result: ${data.message}</div>`);
+overlay.attach(html`
+  <div>Result: ${data.message}</div>
+`);
 ```
 
-> **Note:** Currently Fiber is built to work with [Lit](https://lit.dev/). React and other frameworks are not guaranteed to work. This might chnage in the future
+> **Note:** Currently Fiber is built to work with [Lit](https://lit.dev/). React
+> and other frameworks are not guaranteed to work. This might chnage in the
+> future
 
 ## Installation
 
@@ -23,30 +28,32 @@ npm install fiber-extension
 In `vite.config.ts`:
 
 ```ts
-import { defineConfig } from 'vite';
-import { fiberExtension } from 'fiber-extension/vite';
+import { defineConfig } from "vite";
+import { fiberExtension } from "fiber-extension/vite";
 
 export default defineConfig({
   plugins: [
     fiberExtension({
       manifest: {
-        name: 'My Extension',
-        version: '1.0.0',
-        permissions: ['tabs', 'storage'],
-        host_permissions: ['https://example.com/*'],
-      }
-    })
-  ]
+        name: "My Extension",
+        version: "1.0.0",
+        permissions: ["tabs", "storage"],
+        host_permissions: ["https://example.com/*"],
+      },
+    }),
+  ],
 });
 ```
 
 In `src/app.ts`:
 
 ```ts
-import { overlay } from 'fiber-extension';
-import { html } from 'lit';
+import { overlay } from "fiber-extension";
+import { html } from "lit";
 
-overlay.attach(html`<p>Hello</p>`);
+overlay.attach(html`
+  <p>Hello</p>
+`);
 ```
 
 Run:
@@ -66,30 +73,30 @@ Load `dist/` folder in `chrome://extensions`.
 ### Chrome API Proxy
 
 ```ts
-import { ext } from 'fiber-extension';
+import { ext } from "fiber-extension";
 
 // Tabs
 const tabs = await ext.tabs.query({ currentWindow: true });
 const tab = await ext.tabs.get(123);
-await ext.tabs.create({ url: 'https://example.com' });
+await ext.tabs.create({ url: "https://example.com" });
 await ext.tabs.update(tabId, { pinned: true });
 await ext.tabs.remove(tabId);
 
 // Storage
-await ext.storage.local.set({ key: 'value' });
-const data = await ext.storage.local.get('key');
+await ext.storage.local.set({ key: "value" });
+const data = await ext.storage.local.get("key");
 await ext.storage.sync.clear();
 ```
 
 ### Fetch
 
 ```ts
-import { ext } from 'fiber-extension';
+import { ext } from "fiber-extension";
 
-const response = await ext.fetch('https://api.example.com/data', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ foo: 'bar' }),
+const response = await ext.fetch("https://api.example.com/data", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ foo: "bar" }),
 });
 
 const data = await response.json();
@@ -99,19 +106,23 @@ const data = await response.json();
 ### Shadow DOM Overlay
 
 ```ts
-import { overlay } from 'fiber-extension';
-import { html } from 'lit';
+import { overlay } from "fiber-extension";
+import { html } from "lit";
 
 // Attach overlay to page
 overlay.attach(html`
-  <div style="position: fixed; top: 20px; right: 20px; background: white; padding: 16px;">
+  <div
+    style="position: fixed; top: 20px; right: 20px; background: white; padding: 16px;"
+  >
     <h1>My Extension</h1>
-    <button @click=${handleClick}>Click me</button>
+    <button @click="${handleClick}">Click me</button>
   </div>
 `);
 
 // Update content
-overlay.render(html`<div>Updated content</div>`);
+overlay.render(html`
+  <div>Updated content</div>
+`);
 
 // Remove overlay
 overlay.detach();
@@ -119,7 +130,8 @@ overlay.detach();
 
 ### HMR in Development
 
-Run with `vite dev` for hot module replacement. Changes to your code trigger automatic reload without losing extension state.
+Run with `vite dev` for hot module replacement. Changes to your code trigger
+automatic reload without losing extension state.
 
 ## License
 

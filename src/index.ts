@@ -6,9 +6,9 @@
  * - `overlay`: Shadow DOM container for rendering UI
  */
 
-export { ext } from './runtime/ext';
-export { overlay } from './runtime/overlay';
+export { ext } from "./runtime/ext.ts";
+export { overlay } from "./runtime/overlay.ts";
 
 // Re-export types for convenience
-export type { ExtApi, FetchResponse, FetchFn } from './types/ext';
-export type { Overlay } from './types/overlay';
+export type { ExtApi, FetchFn, FetchResponse } from "./types/ext.d.ts";
+export type { Overlay } from "./types/overlay.d.ts";

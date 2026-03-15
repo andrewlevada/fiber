@@ -5,9 +5,9 @@
  * Used in content scripts to access chrome.* APIs via background.
  */
 
-import type { ExtApi } from '../types/ext';
-import { createRpcClient } from './rpc';
-import { createFetchProxy } from './ext-fetch';
+import type { ExtApi } from "../types/ext.d.ts";
+import { createRpcClient } from "./rpc.ts";
+import { createFetchProxy } from "./ext-fetch.ts";
 
 const rpc = createRpcClient();
 
@@ -19,10 +19,10 @@ function createApiProxy(path: string[] = []): unknown {
   return new Proxy(() => {}, {
     get(_, prop: string) {
       // Ignore Symbol properties (like Symbol.toStringTag, Symbol.iterator)
-      if (typeof prop === 'symbol') return undefined;
+      if (typeof prop === "symbol") return undefined;
 
       // Special case: ext.fetch returns a fetch-like function
-      if (path.length === 0 && prop === 'fetch') {
+      if (path.length === 0 && prop === "fetch") {
         return createFetchProxy(rpc);
       }
 
@@ -30,9 +30,9 @@ function createApiProxy(path: string[] = []): unknown {
     },
 
     apply(_, __, args: unknown[]) {
-      const method = path.join('.');
+      const method = path.join(".");
       return rpc.call(method, args);
-    }
+    },
   });
 }
 
