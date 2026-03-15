@@ -105,8 +105,9 @@ const data = await response.json();
 
 ### Execute in Main World
 
-Content scripts run in an isolated world with strict CSP that blocks `eval()` and
-`new Function()`. Use `executeInMainWorld` to run code in the page's context:
+Content scripts run in an isolated world with strict CSP that blocks `eval()`
+and `new Function()`. Use `executeInMainWorld` to run code in the page's
+context:
 
 ```ts
 import { ext } from "fiber-extension";

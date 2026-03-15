@@ -5,7 +5,12 @@
  * This script runs in the service worker context (MV3).
  */
 
-import { createRpcServer, RpcHandlers, withContext, type RpcContext } from "./rpc.ts";
+import {
+  createRpcServer,
+  type RpcContext,
+  RpcHandlers,
+  withContext,
+} from "./rpc.ts";
 
 // ============================================================================
 // Fetch Response Cache

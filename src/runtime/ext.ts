@@ -27,7 +27,10 @@ function createApiProxy(path: string[] = []): unknown {
       }
 
       // Special case: ext.scripting.executeInMainWorld needs to stringify the function
-      if (path.length === 1 && path[0] === "scripting" && prop === "executeInMainWorld") {
+      if (
+        path.length === 1 && path[0] === "scripting" &&
+        prop === "executeInMainWorld"
+      ) {
         return (func: (...args: unknown[]) => unknown, args: unknown[]) => {
           // Convert function to string before sending over RPC
           const funcString = func.toString();
