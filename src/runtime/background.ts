@@ -209,18 +209,58 @@ const handleExecuteInMainWorld = withContext(
       throw new Error("Cannot determine tab ID from sender");
     }
 
-    // Pass the function as a string and evaluate it IN the main world
-    // This way new Function() runs in the page context, not extension context
-    const injectedFn = (funcString: string, funcArgs: unknown[]) => {
-      // This code runs in the page's main world - no extension CSP!
-      const fn = new Function(`return (${funcString}).apply(null, arguments)`);
-      return fn(...funcArgs);
+    // Create a Trusted Types policy and use eval to execute dynamic code
+    // chrome.scripting.executeScript bypasses CSP, but we need TrustedTypes for eval
+    const executeWithTrustedTypes = (
+      funcString: string,
+      funcArgs: unknown[],
+    ) => {
+      // Create a Trusted Types policy if the API exists and we haven't already
+      const w = window as Window & {
+        trustedTypes?: {
+          createPolicy: (
+            name: string,
+            rules: Record<string, (input: string) => string>,
+          ) => { createScript: (input: string) => unknown };
+        };
+        __fiberTTPolicy?: { createScript: (input: string) => unknown };
+      };
+
+      if (w.trustedTypes && !w.__fiberTTPolicy) {
+        try {
+          w.__fiberTTPolicy = w.trustedTypes.createPolicy("fiber-extension", {
+            createScript: (input: string) => input,
+          });
+        } catch {
+          // Policy creation might fail if a default policy exists or CSP restricts it
+          // In that case, we'll try direct eval below
+        }
+      }
+
+      // Execute the function using eval with TrustedScript if available
+      try {
+        const code = `(${funcString}).apply(null, ${JSON.stringify(funcArgs)})`;
+        if (w.__fiberTTPolicy) {
+          const trustedCode = w.__fiberTTPolicy.createScript(code);
+          // Use indirect eval to execute TrustedScript
+          return (0, eval)(trustedCode as string);
+        } else {
+          // Fallback: try direct eval (works on sites without Trusted Types)
+          return (0, eval)(code);
+        }
+      } catch (e) {
+        throw new Error(
+          `Failed to execute in main world: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
     };
 
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       world: "MAIN",
-      func: injectedFn as () => unknown,
+      func: executeWithTrustedTypes as () => unknown,
       args: [func, args],
     });
 
