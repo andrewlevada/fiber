@@ -125,8 +125,8 @@ function hide(): void {
 }
 
 /**
- * Internal function for HMR to reset overlay state.
- * Called by the Vite plugin during hot module replacement.
+ * Optional helper to tear down overlay DOM and in-memory state (e.g. tests or
+ * manual cleanup). Full dev live reload already replaces the page.
  */
 export function __hmrReset(): void {
   if (container !== null) {

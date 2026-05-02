@@ -59,7 +59,7 @@ overlay.show(html`
 Run:
 
 ```bash
-# Development (with HMR)
+# Development (live reload)
 vite dev
 
 # Production
@@ -69,6 +69,15 @@ vite build
 Load `dist/` folder in `chrome://extensions`.
 
 ## Capabilities
+
+### Supported APIs
+
+- `chrome.tabs.*`
+- `chrome.storage.local.*`
+- `chrome.storage.sync.*`
+- `chrome.storage.session.*`
+- `chrome.scripting.executeInMainWorld`
+- `fetch`
 
 ### Chrome API Proxy
 
@@ -155,10 +164,12 @@ overlay.showOnAction(html`
 `);
 ```
 
-### HMR in Development
+### Live reload in development
 
-Run with `vite dev` for hot module replacement. Changes to your code trigger
-automatic reload without losing extension state.
+Run `vite dev`: edits under `src/` rebuild `content.js` and `background.js` to
+`dist/`, the dev server updates a timestamp, and the background service worker
+polls it and reloads open tabs plus the extension so you pick up changes without
+manually clicking “Reload” in `chrome://extensions`.
 
 ## License
 

@@ -1,8 +1,7 @@
 /**
  * RPC Transport Layer
  *
- * Hidden RPC layer for communication between content scripts and background.
- * Uses chrome.runtime.sendMessage with Promise pattern (MV3, Chrome 99+).
+ * Hidden RPC layer for communication between content scripts and background
  */
 
 // Types
@@ -78,7 +77,6 @@ export function createRpcClient(): RpcClient {
       const id = crypto.randomUUID();
       const request: RpcRequest = { id, method, args };
 
-      // Create a timeout promise that rejects after RPC_TIMEOUT_MS
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           reject(
@@ -139,7 +137,10 @@ export function createRpcServer(handlers: RpcHandlers): void {
       if (!handler) {
         sendResponse({
           id: msg.id,
-          error: { message: `Unknown method: ${msg.method}` },
+          error: {
+            message:
+              `Unknown method (or the Fiber does not support it yet): ${msg.method}`,
+          },
         });
         return true;
       }

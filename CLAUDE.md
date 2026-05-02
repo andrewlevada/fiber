@@ -75,9 +75,10 @@ Content Script                         Background Service Worker
   call. 60s TTL, single-consume.
 - **Overlay** (`runtime/overlay.ts`): Shadow DOM container for Lit templates.
   Uses `pointer-events: none` on host, `auto` on children.
-- **HMR** (`runtime/hmr.ts`): WebSocket to Vite dev server. On update: reset
-  overlay, ask background to re-inject content script via
-  `chrome.scripting.executeScript`.
+- **Live reload (dev)** (`vite/plugin.ts`): Watcher rebuilds extension assets to
+  `dist/`; middleware serves `/__fiber_timestamp`; injected dev background polls
+  that endpoint and calls `chrome.tabs.reload` + `chrome.runtime.reload` when
+  the timestamp changes after a rebuild.
 
 ### Package Exports
 

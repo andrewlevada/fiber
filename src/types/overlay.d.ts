@@ -55,8 +55,8 @@ export interface Overlay {
 }
 
 /**
- * Internal function for HMR to reset overlay state.
- * Not part of the public API.
+ * Optional helper to tear down overlay DOM and in-memory state (e.g. tests).
+ * Not part of the supported public API surface.
  */
 export function __hmrReset(): void;
 

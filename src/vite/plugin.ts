@@ -2,7 +2,7 @@
  * Vite Plugin for Fiber Extension
  *
  * Orchestrates the build process for Chrome extensions.
- * Dev mode: `vite dev` - builds to disk with esbuild, uses WebSocket for HMR.
+ * Dev mode: `vite dev` - builds to disk with esbuild; poll-based live reload.
  * Prod mode: `vite build` - standard Rollup build with esbuild post-processing.
  */
 
@@ -101,7 +101,8 @@ export interface FiberOptions {
 
 /**
  * Build the manifest.json from user options and defaults.
- * Dev mode auto-adds 'scripting' permission for HMR.
+ * Dev mode auto-adds `scripting` so `ext.scripting.executeInMainWorld` works
+ * without listing the permission during development.
  */
 function buildManifest(
   partial: Partial<ManifestV3>,
@@ -111,7 +112,7 @@ function buildManifest(
   const contentMatches = partial.content_scripts?.[0]?.matches ??
     hostPermissions;
 
-  // Dev mode needs scripting permission for HMR reload
+  // Dev: ensure scripting API is available (e.g. executeInMainWorld RPC)
   const permissions: ManifestPermission[] = [...(partial.permissions ?? [])];
   if (isDev && !permissions.includes("scripting")) {
     permissions.push("scripting");
@@ -162,16 +163,16 @@ function generateContentEntry(_isDev: boolean, _devServerPort: number): string {
 
 /**
  * Generate background script entry code.
- * @param isDev - Whether in dev mode (includes HMR handler)
+ * @param isDev - Whether in dev mode (includes live-reload poll against dev server)
  * @param devServerPort - Dev server port for polling
  */
 function generateBackgroundEntry(
   isDev: boolean,
   devServerPort: number,
 ): string {
-  const hmrHandler = isDev
+  const devLiveReloadPoll = isDev
     ? `
-// HMR: Poll dev server for changes and reload extension
+// Live reload: poll dev server for rebuild timestamp, then reload extension
 let lastTimestamp = Date.now();
 async function checkForUpdates() {
   try {
@@ -191,7 +192,8 @@ async function checkForUpdates() {
 }
 setInterval(checkForUpdates, 1000);`
     : "";
-  return `import 'fiber-extension/runtime/background';${hmrHandler}`;
+
+  return `import 'fiber-extension/runtime/background';${devLiveReloadPoll}`;
 }
 
 // ============================================================================
@@ -266,7 +268,7 @@ async function bundleWithEsbuild(
  * });
  * ```
  *
- * Dev mode: Run `vite dev` for watch mode + HMR.
+ * Dev mode: Run `vite dev` for watch mode and poll-based live reload.
  */
 export function fiberExtension(options: FiberOptions): Plugin {
   let isDev = false;
@@ -361,15 +363,11 @@ export function fiberExtension(options: FiberOptions): Plugin {
       });
     },
 
-    handleHotUpdate({ file, server }) {
+    handleHotUpdate({ file }) {
       const srcDir = path.resolve("src");
       if (!file.startsWith(srcDir)) return;
 
-      // Tell all connected clients to update
-      // The content script's HMR client listens for 'update' messages
-      server.ws.send({ type: "update", updates: [] });
-
-      // Return empty array to prevent Vite's default HMR
+      // Extension bundles are rebuilt via configureServer watcher, not Vite HMR
       return [];
     },
 

@@ -16,12 +16,14 @@ const rpc = createRpcClient();
  * e.g., ext.tabs.query(...) -> rpc.call("tabs.query", [...])
  */
 function createApiProxy(path: string[] = []): unknown {
-  return new Proxy(() => {}, {
+  const emptyTarget = () => {};
+
+  return new Proxy(emptyTarget, {
     get(_, prop: string) {
       // Ignore Symbol properties (like Symbol.toStringTag, Symbol.iterator)
       if (typeof prop === "symbol") return undefined;
 
-      // Special case: ext.fetch returns a fetch-like function
+      // We extend the chrome API with a ext.fetch
       if (path.length === 0 && prop === "fetch") {
         return createFetchProxy(rpc);
       }

@@ -29,10 +29,6 @@
     "./runtime/overlay": {
       "types": "./dist/runtime/overlay.d.ts",
       "import": "./dist/runtime/overlay.js"
-    },
-    "./runtime/hmr": {
-      "types": "./dist/runtime/hmr.d.ts",
-      "import": "./dist/runtime/hmr.js"
     }
   },
   "scripts": {

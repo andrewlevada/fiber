@@ -12,9 +12,9 @@
     "vite": "npm:vite@^7.3.1"
   },
   "tasks": {
-    "build": "deno run -A npm:typescript/tsc && cp -r src/types dist/ && deno run --allow-read --allow-write scripts/fix-dts-imports.ts",
+    "build": "rm -rf dist && deno run -A npm:typescript/tsc && cp -r src/types dist/ && deno run --allow-read --allow-write scripts/fix-dts-imports.ts",
     "typecheck": "deno check src/index.ts src/runtime/*.ts src/vite/*.ts e2e/*.ts e2e/tests/*.ts e2e/fixtures/test-extension/src/*.ts e2e/fixtures/test-extension/*.ts",
-    "test:e2e": "deno run --allow-read --allow-run e2e/run-tests.ts"
+    "test:e2e": "deno run --allow-read --allow-run --allow-env e2e/run-tests.ts"
   },
   "exclude": ["node_modules", "**/node_modules"]
 }
