@@ -6,6 +6,7 @@
  */
 
 import { render, type TemplateResult } from "lit-html";
+import { isEditableTarget } from "./util/editable-check.ts";
 
 /** Content types supported by the overlay */
 type OverlayContent =
@@ -14,6 +15,9 @@ type OverlayContent =
 
 /** Data attribute to identify fiber overlay containers */
 const OVERLAY_ATTR = "data-fiber-overlay";
+
+/** Data attribute set when the overlay is visible; read by the key trap */
+const OVERLAY_OPEN_ATTR = "data-fiber-overlay-open";
 
 /** Container element reference */
 let container: HTMLElement | null = null;
@@ -60,6 +64,19 @@ function ensureContainer(): ShadowRoot {
     styleSheet.replaceSync(CONTAINER_STYLES);
     shadowRoot.adoptedStyleSheets = [styleSheet];
 
+    // Bubble-phase guard: stop key events from propagating to page document/
+    // window listeners when the actual focused element is an editable field
+    // inside the shadow tree. This complements the window-capture trap in
+    // overlay-key-trap.ts, which blocks capture-phase page listeners.
+    // composedPath()[0] on an open shadow root returns the real inner target.
+    const stopIfEditable = (e: Event): void => {
+      if (isEditableTarget((e as KeyboardEvent).composedPath()[0])) {
+        e.stopPropagation();
+      }
+    };
+    container.addEventListener("keydown", stopIfEditable);
+    container.addEventListener("keyup", stopIfEditable);
+
     document.documentElement.appendChild(container);
   }
 
@@ -84,6 +101,7 @@ function renderContent(content: OverlayContent): void {
 function show(content: OverlayContent): void {
   ensureContainer();
   container!.style.display = "";
+  container!.setAttribute(OVERLAY_OPEN_ATTR, "");
   renderContent(content);
 }
 
@@ -105,9 +123,11 @@ function showOnAction(content: OverlayContent): void {
       if (message.type === "fiber:toggle-overlay") {
         if (container!.style.display === "none") {
           container!.style.display = "";
+          container!.setAttribute(OVERLAY_OPEN_ATTR, "");
           if (storedContent) renderContent(storedContent);
         } else {
           container!.style.display = "none";
+          container!.removeAttribute(OVERLAY_OPEN_ATTR);
         }
       }
       return undefined;
@@ -121,6 +141,7 @@ function showOnAction(content: OverlayContent): void {
 function hide(): void {
   if (container !== null) {
     container.style.display = "none";
+    container.removeAttribute(OVERLAY_OPEN_ATTR);
   }
 }
 

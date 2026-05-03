@@ -29,6 +29,10 @@
     "./runtime/overlay": {
       "types": "./dist/runtime/overlay.d.ts",
       "import": "./dist/runtime/overlay.js"
+    },
+    "./runtime/overlay-key-trap": {
+      "types": "./dist/runtime/overlay-key-trap.d.ts",
+      "import": "./dist/runtime/overlay-key-trap.js"
     }
   },
   "scripts": {
@@ -60,6 +64,8 @@
   ],
   "license": "MIT",
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

@@ -84,6 +84,7 @@ interface ManifestV3 {
     resources: string[];
     matches: string[];
   }>;
+  minimum_chrome_version?: string;
 }
 
 // ============================================================================
@@ -118,6 +119,8 @@ function buildManifest(
     permissions.push("scripting");
   }
 
+  const matches = contentMatches.length > 0 ? contentMatches : ["<all_urls>"];
+
   // Build base manifest
   const manifest: ManifestV3 = {
     manifest_version: 3,
@@ -128,11 +131,10 @@ function buildManifest(
     background: {
       service_worker: "background.js",
     },
-    content_scripts: [{
-      matches: contentMatches.length > 0 ? contentMatches : ["<all_urls>"],
-      js: ["content.js"],
-      run_at: "document_idle",
-    }],
+    content_scripts: [
+      { matches, js: ["content-early.js"], run_at: "document_start" },
+      { matches, js: ["content.js"], run_at: "document_idle" },
+    ],
   };
 
   // Merge optional fields from partial
@@ -142,6 +144,9 @@ function buildManifest(
   manifest.action = partial.action ?? {};
   if (partial.web_accessible_resources) {
     manifest.web_accessible_resources = partial.web_accessible_resources;
+  }
+  if (partial.minimum_chrome_version) {
+    manifest.minimum_chrome_version = partial.minimum_chrome_version;
   }
 
   return manifest;
@@ -159,6 +164,14 @@ function buildManifest(
 function generateContentEntry(_isDev: boolean, _devServerPort: number): string {
   const appPath = path.resolve("src/app.ts").replace(/\\/g, "/");
   return `import '${appPath}';`;
+}
+
+/**
+ * Generate early content script entry code (document_start key trap).
+ * The import is resolved against the fiber-extension package's exports.
+ */
+function generateEarlyTrapEntry(): string {
+  return `import 'fiber-extension/runtime/overlay-key-trap';`;
 }
 
 /**
@@ -222,6 +235,18 @@ async function bundleWithEsbuild(
     bundle: true,
     format: "iife",
     outfile: path.join(outDir, "content.js"),
+  });
+
+  // Bundle content-early.js (document_start key trap)
+  await esbuild({
+    stdin: {
+      contents: generateEarlyTrapEntry(),
+      resolveDir: process.cwd(),
+      loader: "ts",
+    },
+    bundle: true,
+    format: "iife",
+    outfile: path.join(outDir, "content-early.js"),
   });
 
   // Bundle background.js
@@ -297,6 +322,7 @@ export function fiberExtension(options: FiberOptions): Plugin {
           rollupOptions: {
             input: {
               content: "virtual:fiber/content",
+              "content-early": "virtual:fiber/content-early",
               background: "virtual:fiber/background",
             },
             output: {
@@ -389,6 +415,10 @@ export function fiberExtension(options: FiberOptions): Plugin {
         return generateContentEntry(isDev, devServerPort);
       }
 
+      if (id === "virtual:fiber/content-early") {
+        return generateEarlyTrapEntry();
+      }
+
       if (id === "virtual:fiber/background") {
         return generateBackgroundEntry(isDev, devServerPort);
       }
@@ -450,14 +480,27 @@ export function fiberExtension(options: FiberOptions): Plugin {
         minify: !isDev,
       });
 
+      // Re-bundle early trap script
+      const earlyPath = path.join(outDir, "content-early.js");
+      await esbuild({
+        entryPoints: [earlyPath],
+        bundle: true,
+        format: "iife",
+        outfile: earlyPath,
+        allowOverwrite: true,
+        minify: !isDev,
+      });
+
       // Clean up any chunk files that are no longer needed
+      const keepFiles = new Set([
+        "content.js",
+        "background.js",
+        "content-early.js",
+      ]);
       const fs = await import("fs/promises");
       const files = await fs.readdir(outDir);
       for (const file of files) {
-        if (
-          file.endsWith(".js") && file !== "content.js" &&
-          file !== "background.js"
-        ) {
+        if (file.endsWith(".js") && !keepFiles.has(file)) {
           await fs.unlink(path.join(outDir, file));
         }
       }
