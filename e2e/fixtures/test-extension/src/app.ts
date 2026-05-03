@@ -3,6 +3,12 @@ import type { Overlay } from "../../../../dist/types/overlay.d.ts";
 import { ext as extUntyped, overlay as overlayUntyped } from "fiber-extension";
 import { html } from "lit-html";
 
+declare module "fiber-extension" {
+  interface FiberStorageLocal {
+    testKey: string;
+  }
+}
+
 // Cast to proper types (Deno can't resolve types from JS imports automatically)
 const ext = extUntyped as unknown as ExtApi;
 const overlay = overlayUntyped as unknown as Overlay;

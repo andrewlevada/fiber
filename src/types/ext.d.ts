@@ -119,13 +119,49 @@ export interface TabsApi {
 // Storage API
 // ============================================================================
 
-export interface StorageArea {
-  get(
-    keys?: string | string[] | Record<string, unknown> | null,
-  ): Promise<Record<string, unknown>>;
-  getBytesInUse(keys?: string | string[] | null): Promise<number>;
-  set(items: Record<string, unknown>): Promise<void>;
-  remove(keys: string | string[]): Promise<void>;
+/**
+ * Per-area schema interfaces. Extend these via module augmentation in your
+ * extension to get fully-typed `set`/`get` without any casts.
+ *
+ * @example
+ * ```ts
+ * // e.g. my-extension/src/types/storage.d.ts
+ * declare module "fiber-extension" {
+ *   interface FiberStorageLocal {
+ *     "my-key": string;
+ *     "my-counter": number;
+ *   }
+ * }
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface FiberStorageLocal {}
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface FiberStorageSync {}
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface FiberStorageSession {}
+
+/**
+ * A strongly-typed storage area whose `get`/`set`/`remove` methods are all
+ * constrained to the keys declared in schema `S`.
+ *
+ * Chrome never includes unset keys in the `get` result, so all return types
+ * use `Partial` (optional properties).
+ */
+export interface StorageAreaFor<S extends Record<string, unknown>> {
+  /** Retrieve all stored items as a partial snapshot of the schema. */
+  get(): Promise<Partial<S>>;
+  /** Retrieve a single key. The property is absent if the key is not set. */
+  get<K extends keyof S & string>(key: K): Promise<Pick<Partial<S>, K>>;
+  /** Retrieve a subset of keys. Properties absent in storage are omitted. */
+  get<K extends keyof S & string>(keys: K[]): Promise<Pick<Partial<S>, K>>;
+  /** Retrieve items using an object of default values. */
+  get(defaults: Partial<S>): Promise<Partial<S>>;
+  getBytesInUse(
+    keys?: (keyof S & string) | (keyof S & string)[] | null,
+  ): Promise<number>;
+  set(items: Partial<S>): Promise<void>;
+  remove(keys: (keyof S & string) | (keyof S & string)[]): Promise<void>;
   clear(): Promise<void>;
 }
 
@@ -135,10 +171,10 @@ export interface StorageChange {
 }
 
 export interface StorageApi {
-  local: StorageArea;
-  sync: StorageArea;
-  session: StorageArea;
-  managed: Pick<StorageArea, "get" | "getBytesInUse">;
+  local: StorageAreaFor<FiberStorageLocal>;
+  sync: StorageAreaFor<FiberStorageSync>;
+  session: StorageAreaFor<FiberStorageSession>;
+  managed: Pick<StorageAreaFor<FiberStorageLocal>, "get" | "getBytesInUse">;
 }
 
 // ============================================================================

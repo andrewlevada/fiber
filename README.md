@@ -97,6 +97,36 @@ const data = await ext.storage.local.get("key");
 await ext.storage.sync.clear();
 ```
 
+### Typed storage schema
+
+By default, `ext.storage.local` (and `.sync`, `.session`) accept and return
+`unknown` values. To get full type-safety without casts, augment the per-area
+schema interfaces once in your project:
+
+```ts
+// src/types/storage.d.ts
+declare module "fiber-extension" {
+  interface FiberStorageLocal {
+    "my-api-key": string;
+    "my-counter": number;
+  }
+}
+```
+
+After that, `set` and `get` are both constrained to those exact types—no type
+assertions needed at call sites:
+
+```ts
+// ✅ TypeScript knows this is `{ "my-api-key"?: string }`
+const result = await ext.storage.local.get("my-api-key");
+const key = result["my-api-key"] ?? null; // string | null
+
+// ✅ Rejects unknown keys or wrong value types at compile time
+await ext.storage.local.set({ "my-api-key": 42 }); // TS error: not assignable to string
+```
+
+The same pattern applies to `FiberStorageSync` and `FiberStorageSession`.
+
 ### Fetch
 
 ```ts
