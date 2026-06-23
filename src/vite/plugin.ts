@@ -26,6 +26,8 @@ type ManifestPermission =
   | "contextMenus"
   | "cookies"
   | "declarativeContent"
+  | "declarativeNetRequest"
+  | "declarativeNetRequestWithHostAccess"
   | "downloads"
   | "geolocation"
   | "history"

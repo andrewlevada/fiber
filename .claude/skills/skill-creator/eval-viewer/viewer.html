@@ -163,8 +163,7 @@
         color: var(--accent);
         text-decoration: none;
         cursor: pointer;
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-weight: 500;
         opacity: 0.8;
       }
@@ -616,10 +615,10 @@
 
       <!-- View tabs (only shown when benchmark data exists) -->
       <div class="view-tabs" id="view-tabs" style="display: none">
-        <button class="view-tab active" onclick="switchView('outputs')">
+        <button class="view-tab active" onclick='switchView("outputs")'>
           Outputs
         </button>
-        <button class="view-tab" onclick="switchView('benchmark')">
+        <button class="view-tab" onclick='switchView("benchmark")'>
           Benchmark
         </button>
       </div>
@@ -790,8 +789,7 @@
       }
 
       function updateNavButtons() {
-        document.getElementById("prev-btn").disabled =
-          currentIndex === 0;
+        document.getElementById("prev-btn").disabled = currentIndex === 0;
         document.getElementById("next-btn").disabled =
           currentIndex === EMBEDDED_DATA.runs.length - 1;
       }
@@ -839,16 +837,14 @@
         const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
         const prevEl = document.getElementById("prev-feedback");
         if (prevFb) {
-          document.getElementById("prev-feedback-text").textContent =
-            prevFb;
+          document.getElementById("prev-feedback-text").textContent = prevFb;
           prevEl.style.display = "block";
         } else {
           prevEl.style.display = "none";
         }
 
         // Feedback
-        document.getElementById("feedback").value =
-          feedbackMap[run.id] || "";
+        document.getElementById("feedback").value = feedbackMap[run.id] || "";
         document.getElementById("feedback-status").textContent = "";
 
         updateNavButtons();
@@ -1037,8 +1033,7 @@
       function renderPrevOutputs(run) {
         const section = document.getElementById("prev-outputs-section");
         const content = document.getElementById("prev-outputs-content");
-        const prevOutputs =
-          (EMBEDDED_DATA.previous_outputs || {})[run.id];
+        const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
 
         if (!prevOutputs || prevOutputs.length === 0) {
           section.style.display = "none";
@@ -1143,8 +1138,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ reviews, status: "in_progress" }),
         }).then(() => {
-          document.getElementById("feedback-status").textContent =
-            "Saved";
+          document.getElementById("feedback-status").textContent = "Saved";
         }).catch(() => {
           // Static mode or server unavailable — no-op on auto-save,
           // feedback will be downloaded on final submit
@@ -1311,9 +1305,7 @@
         function fmtStat(stat, pct) {
           if (!stat) return "—";
           const suffix = pct ? "%" : "";
-          const m = pct
-            ? (stat.mean * 100).toFixed(0)
-            : stat.mean.toFixed(1);
+          const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
           const s = pct
             ? (stat.stddev * 100).toFixed(0)
             : stat.stddev.toFixed(1);
@@ -1329,9 +1321,7 @@
         }
 
         // Discover config names dynamically (everything except "delta")
-        const configs = Object.keys(summary).filter((k) =>
-          k !== "delta"
-        );
+        const configs = Object.keys(summary).filter((k) => k !== "delta");
         const configA = configs[0] || "config_a";
         const configB = configs[1] || "config_b";
         const labelA = configA.replace(/_/g, " ").replace(
@@ -1392,9 +1382,7 @@
           const hasTime = runs.some((r) =>
             r.result && r.result.time_seconds != null
           );
-          const hasErrors = runs.some((r) =>
-            r.result && r.result.errors > 0
-          );
+          const hasErrors = runs.some((r) => r.result && r.result.errors > 0);
 
           for (const evalId of evalIds) {
             const evalRuns = runs.filter((r) => r.eval_id === evalId);
@@ -1406,8 +1394,7 @@
               "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" +
               escapeHtml(evalName) + "</h4>";
             html += '<table class="benchmark-table">';
-            html +=
-              "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+            html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
             if (hasTime) html += "<th>Time (s)</th>";
             if (hasErrors) html += "<th>Crashes During Execution</th>";
             html += "</tr></thead>";
@@ -1446,9 +1433,8 @@
                   ((r.pass_rate || 0) * 100).toFixed(0) + "% (" +
                   (r.passed || 0) + "/" + (r.total || 0) + ")</td>";
                 if (hasTime) {
-                  html += "<td>" + (r.time_seconds != null
-                    ? r.time_seconds.toFixed(1)
-                    : "—") +
+                  html += "<td>" +
+                    (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") +
                     "</td>";
                 }
                 if (hasErrors) {

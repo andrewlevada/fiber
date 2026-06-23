@@ -316,6 +316,70 @@ const handlers: RpcHandlers = {
 createRpcServer(handlers);
 
 // ============================================================================
+// Page CSP Relaxation
+// ============================================================================
+
+/**
+ * Strip Content-Security-Policy response headers from document loads so that
+ * `executeInMainWorld` can run dynamic rule logic via `eval`.
+ *
+ * `chrome.scripting.executeScript` (world: "MAIN") only bypasses CSP for the
+ * injected function body itself — any `eval`/`new Function` it then performs is
+ * still gated by the page's `script-src`. Sites that ship `script-src` without
+ * `'unsafe-eval'` and without `require-trusted-types-for` (e.g. GitHub) leave no
+ * Trusted Types escape hatch, so the only reliable way to keep eval-based rule
+ * execution working is to remove the page CSP before the document is parsed.
+ *
+ * Requires the `declarativeNetRequest` permission and host permissions for the
+ * affected pages. No-op when the API is unavailable.
+ */
+const CSP_RELAX_RULE_ID = 1;
+
+async function setupCspRelaxation(): Promise<void> {
+  if (!chrome.declarativeNetRequest?.updateDynamicRules) {
+    return;
+  }
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [CSP_RELAX_RULE_ID],
+      addRules: [
+        {
+          id: CSP_RELAX_RULE_ID,
+          priority: 1,
+          action: {
+            type:
+              "modifyHeaders" as chrome.declarativeNetRequest.RuleActionType,
+            responseHeaders: [
+              {
+                header: "content-security-policy",
+                operation:
+                  "remove" as chrome.declarativeNetRequest.HeaderOperation,
+              },
+              {
+                header: "content-security-policy-report-only",
+                operation:
+                  "remove" as chrome.declarativeNetRequest.HeaderOperation,
+              },
+            ],
+          },
+          condition: {
+            urlFilter: "*",
+            resourceTypes: [
+              "main_frame",
+              "sub_frame",
+            ] as chrome.declarativeNetRequest.ResourceType[],
+          },
+        },
+      ],
+    });
+  } catch (e) {
+    console.error("[fiber] Failed to register CSP relaxation rule:", e);
+  }
+}
+
+setupCspRelaxation();
+
+// ============================================================================
 // Action Click Handler
 // ============================================================================
 

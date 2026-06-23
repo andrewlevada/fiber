@@ -221,9 +221,7 @@
             const headerRow = document.createElement("tr");
             headerRow.className = "section-header";
             headerRow.innerHTML = `<td colspan="3">${
-              item.should_trigger
-                ? "Should Trigger"
-                : "Should NOT Trigger"
+              item.should_trigger ? "Should Trigger" : "Should NOT Trigger"
             }</td>`;
             tbody.appendChild(headerRow);
             lastGroup = group;
@@ -280,10 +278,8 @@
       }
 
       function updateSummary() {
-        const trigger =
-          evalItems.filter((i) => i.should_trigger).length;
-        const noTrigger =
-          evalItems.filter((i) => !i.should_trigger).length;
+        const trigger = evalItems.filter((i) => i.should_trigger).length;
+        const noTrigger = evalItems.filter((i) => !i.should_trigger).length;
         document.getElementById("summary").textContent =
           `${evalItems.length} queries total: ${trigger} should trigger, ${noTrigger} should not trigger`;
       }
