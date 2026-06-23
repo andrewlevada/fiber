@@ -42,7 +42,10 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.51.0",
-    "chrome-types": "^0.1.327"
+    "@types/node": "25.3.3",
+    "chrome-types": "^0.1.327",
+    "esbuild": "0.27.3",
+    "lit-html": "^3.3.2"
   },
   "peerDependencies": {
     "lit": "^3.0.0",
