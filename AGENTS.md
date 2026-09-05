@@ -1,28 +1,90 @@
-# AGENTS.md
+## Design Goals
 
-## Cursor Cloud specific instructions
+1. **Single control flow** — users write one `src/app.ts`, everything works via
+   async/await
+2. **No message passing** — developers never touch `chrome.runtime.sendMessage`
+3. **Overlay-first UI** — no popups, UI lives inside the page via Shadow DOM
+4. **Lit as base framework** — templates use lit-html
+5. **Zero config** — Vite plugin handles all wiring
 
-Fiber is a Chrome-extension framework library. Its toolchain is **Deno** (the
-`package.json` scripts delegate to `deno task`), with Node + pnpm used only for
-Playwright. See `CLAUDE.md` for the architecture and the canonical command list.
+## Commands
 
-- `deno` is installed and symlinked at `/usr/local/bin/deno`, so it is on `PATH`
-  for all shells.
-- `pnpm build` (= `deno task build`) compiles `src/` to `dist/`. The `dist/` must
-  exist before the e2e suite runs and before the sibling
-  `internet-shaper-thesis-2026/browser-extension` (which links `fiber-extension`
-  via `../../fiber`) can resolve the package. `dist/` is git-ignored; rebuild it
-  after changing fiber source.
-- `@types/node`, `esbuild`, and `lit-html` are devDependencies. They are only
-  needed so the standalone `tsc` build can resolve types/imports; at consumer
-  runtime they come transitively from the `lit`/`vite` peer dependencies.
-- e2e tests (`pnpm test:e2e`) drive a **headed** Chromium through Playwright
-  (extensions require headed Chrome), so they need a display — `DISPLAY=:1` is
-  available in this environment. To run a single test use
-  `deno run --allow-read --allow-run --allow-env e2e/run-tests.ts <n>` (the
-  Deno-shebang runner cannot be launched with `node`).
-- The `fetch-proxy` spec hits `httpbin.org`; it can fail intermittently due to
-  external network latency, not a code regression — re-run to confirm.
-- `deno task typecheck`, `deno lint`, and `deno fmt --check` currently report
-  pre-existing issues (e.g. in `src/types/ext.d.ts`, missing `node:` import
-  prefixes). These are source-level, not environment problems.
+```bash
+pnpm build          # Compile TypeScript to dist/
+pnpm typecheck      # Type-check without emitting
+
+# E2E tests (Playwright + Chrome)
+pnpm test:e2e                    # Run all tests
+node e2e/run-tests.ts --list     # List available tests
+node e2e/run-tests.ts 1 2        # Run specific tests by number
+```
+
+The pre-commit hook runs `deno fmt` and `deno lint --fix`, then re-stages
+modified files with `git add -u`. No manual re-staging needed after commits.
+
+## Architecture
+
+Fiber is a Chrome extension framework that hides message passing behind a
+single-program abstraction. Users write one `src/app.ts` file, and the Vite
+plugin generates everything else.
+
+### Build Pipeline
+
+```
+User's src/app.ts
+       │
+       ▼
+┌──────────────────────────────────────────────────┐
+│  Vite Plugin (src/vite/plugin.ts)                │
+│  - Dev: esbuild watch → dist/{content,background}.js
+│  - Prod: Rollup + esbuild post-process           │
+│  - Generates manifest.json from plugin options   │
+└──────────────────────────────────────────────────┘
+       │
+       ▼
+ dist/content.js    dist/background.js    dist/manifest.json
+```
+
+### Runtime Architecture
+
+Content script and background service worker communicate via RPC. The `ext`
+proxy builds method paths and forwards calls:
+
+```
+Content Script                         Background Service Worker
+┌─────────────────────┐               ┌─────────────────────────┐
+│ ext.tabs.query(...) │  ───RPC───▶  │ chrome.tabs.query(...)  │
+│ ext.fetch(url)      │  ───RPC───▶  │ fetch(url) + cache body │
+│ overlay.show()      │               │                         │
+└─────────────────────┘               └─────────────────────────┘
+```
+
+- **ext proxy** (`runtime/ext.ts`): Recursive Proxy that converts property
+  access into RPC calls. `ext.tabs.query({})` becomes
+  `rpc.call("tabs.query", [{}])`.
+- **RPC layer** (`runtime/rpc.ts`): `createRpcClient` (content) /
+  `createRpcServer` (background). Uses `chrome.runtime.sendMessage` with 30s
+  timeout.
+- **Fetch proxy** (`runtime/ext-fetch.ts` + `background.ts`): Two-phase
+  fetch—background caches Response, content script reads body via separate RPC
+  call. 60s TTL, single-consume.
+- **Overlay** (`runtime/overlay.ts`): Shadow DOM container for Lit templates.
+  Uses `pointer-events: none` on host, `auto` on children.
+- **Live reload (dev)** (`vite/plugin.ts`): Watcher rebuilds extension assets to
+  `dist/`; middleware serves `/__fiber_timestamp`; injected dev background polls
+  that endpoint and calls `chrome.tabs.reload` + `chrome.runtime.reload` when
+  the timestamp changes after a rebuild.
+
+### Package Exports
+
+```
+fiber-extension           → ext, overlay (main public API)
+fiber-extension/vite      → fiberExtension plugin
+fiber-extension/runtime/* → Individual runtime modules
+```
+
+## Testing
+
+E2E tests use Playwright with a real Chrome instance. The test fixture
+(`e2e/fixtures.ts`) builds and loads a test extension, then provides helpers to
+interact with it.

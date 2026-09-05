@@ -50,29 +50,29 @@ globalThis.addEventListener("fiber-test-command", async (e) => {
               background: white;
               border: 1px solid #ccc;
               border-radius: 8px;"
-            >
-              <h2>Fiber Overlay Test</h2>
-              <button data-testid="overlay-button">Click Me</button>
-            </div>
-          `);
-          result = true;
-          break;
-        case "detachOverlay":
-          overlay.hide();
-          result = true;
-          break;
-        default:
-          error = `Unknown command: ${command}`;
-      }
-    } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+          >
+            <h2>Fiber Overlay Test</h2>
+            <button data-testid="overlay-button">Click Me</button>
+          </div>
+        `);
+        result = true;
+        break;
+      case "detachOverlay":
+        overlay.hide();
+        result = true;
+        break;
+      default:
+        error = `Unknown command: ${command}`;
     }
+  } catch (err) {
+    error = err instanceof Error ? err.message : String(err);
+  }
 
-    globalThis.dispatchEvent(
-      new CustomEvent("fiber-test-response", {
-        detail: { id, result, error },
-      }),
-    );
-  });
+  globalThis.dispatchEvent(
+    new CustomEvent("fiber-test-response", {
+      detail: { id, result, error },
+    }),
+  );
+});
 
-  document.documentElement.setAttribute("data-fiber-loaded", "true");
+document.documentElement.setAttribute("data-fiber-loaded", "true");

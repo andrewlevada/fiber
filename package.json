@@ -5,6 +5,11 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "deno task build",
+    "typecheck": "deno task typecheck",
+    "test:e2e": "deno task test:e2e"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -34,11 +39,6 @@
       "types": "./dist/runtime/overlay-key-trap.d.ts",
       "import": "./dist/runtime/overlay-key-trap.js"
     }
-  },
-  "scripts": {
-    "build": "deno task build",
-    "typecheck": "deno task typecheck",
-    "test:e2e": "deno task test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.0",
