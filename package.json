@@ -70,5 +70,8 @@
     "onlyBuiltDependencies": [
       "esbuild"
     ]
+  },
+  "dependencies": {
+    "@webcomponents/webcomponentsjs": "^2.8.0"
   }
 }

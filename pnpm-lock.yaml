@@ -7,6 +7,9 @@ settings:
 importers:
   .:
     dependencies:
+      "@webcomponents/webcomponentsjs":
+        specifier: ^2.8.0
+        version: 2.8.0
       lit:
         specifier: ^3.0.0
         version: 3.3.2
@@ -459,6 +462,11 @@ packages:
       integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==,
     }
 
+  "@webcomponents/webcomponentsjs@2.8.0":
+    resolution: {
+      integrity: sha512-loGD63sacRzOzSJgQnB9ZAhaQGkN7wl2Zuw7tsphI5Isa0irijrRo6EnJii/GgjGefIFO8AIO7UivzRhFaEk9w==,
+    }
+
   chrome-types@0.1.421:
     resolution: {
       integrity: sha512-SJ6YS3gpeN8lERkrBRr1RHA52gAPvCs02870A+RXO8clq36282uSaYByhrFWrkQ+qvhThoEuMBBR0GbM58zvHw==,
@@ -786,6 +794,8 @@ snapshots:
       undici-types: 7.18.2
 
   "@types/trusted-types@2.0.7": {}
+
+  "@webcomponents/webcomponentsjs@2.8.0": {}
 
   chrome-types@0.1.421: {}
 

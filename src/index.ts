@@ -1,3 +1,5 @@
+import "@webcomponents/webcomponentsjs";
+
 /**
  * Fiber Extension - Main Exports
  *
