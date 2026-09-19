@@ -49,7 +49,6 @@ test.describe("Overlay Rendering", () => {
     await callContentScript(page, "attachOverlay");
     await expect(page.getByText("Fiber Overlay Test")).toBeVisible();
 
-    // Calling show again should work without throwing
     await callContentScript(page, "attachOverlay");
     await expect(page.getByText("Fiber Overlay Test")).toBeVisible();
   });

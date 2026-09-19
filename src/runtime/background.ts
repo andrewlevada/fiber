@@ -1,10 +1,3 @@
-/**
- * Background Script
- *
- * Handles RPC calls from content scripts and provides access to Chrome APIs.
- * This script runs in the service worker context (MV3).
- */
-
 import {
   createRpcServer,
   type RpcContext,
@@ -12,27 +5,17 @@ import {
   withContext,
 } from "./rpc.ts";
 
-// ============================================================================
-// Fetch Response Cache
-// ============================================================================
-
-const RESPONSE_TTL_MS = 60_000; // 60 seconds
+const RESPONSE_TTL_MS = 60_000;
 
 interface CachedResponse {
   response: Response;
   expiresAt: number;
 }
 
-/** Map of response ID to cached Response object */
 const responseCache = new Map<string, CachedResponse>();
 
-/** Set of response IDs that have had their body consumed */
 const consumedResponses = new Set<string>();
 
-/**
- * Clean up expired responses from the cache.
- * Called periodically and before cache operations.
- */
 function cleanupExpiredResponses(): void {
   const now = Date.now();
   for (const [id, cached] of responseCache) {
@@ -42,14 +25,8 @@ function cleanupExpiredResponses(): void {
   }
 }
 
-// Run cleanup every 30 seconds
 setInterval(cleanupExpiredResponses, 30_000);
 
-// ============================================================================
-// Fetch Handlers
-// ============================================================================
-
-/** Serializable RequestInit received from content script */
 interface SerializableRequestInit {
   method?: string;
   headers?: Record<string, string>;
@@ -64,9 +41,6 @@ interface SerializableRequestInit {
   keepalive?: boolean;
 }
 
-/**
- * Convert ArrayBuffer to base64 string for RPC transport
- */
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
@@ -78,12 +52,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 
 type BodyMode = "text" | "json" | "arrayBuffer" | "blob";
 
-/**
- * Perform fetch and cache the response.
- * Returns metadata that can be used to read the body later.
- *
- * RPC signature: fetch(url: string, init?: SerializableRequestInit)
- */
 async function handleFetch(
   ...args: unknown[]
 ): Promise<{
@@ -95,22 +63,17 @@ async function handleFetch(
 }> {
   const [url, init] = args as [string, SerializableRequestInit | undefined];
 
-  // Clean up expired responses before adding new ones
   cleanupExpiredResponses();
 
-  // Perform the actual fetch
   const response = await fetch(url, init);
 
-  // Generate unique ID for this response
   const id = crypto.randomUUID();
 
-  // Cache the response with TTL
   responseCache.set(id, {
     response,
     expiresAt: Date.now() + RESPONSE_TTL_MS,
   });
 
-  // Extract headers into plain object
   const headers: Record<string, string> = {};
   response.headers.forEach((value, key) => {
     headers[key] = value;
@@ -125,21 +88,13 @@ async function handleFetch(
   };
 }
 
-/**
- * Read body from cached response.
- * The response is deleted from cache after reading (body can only be read once).
- *
- * RPC signature: fetchBody(id: string, mode: BodyMode)
- */
 async function handleFetchBody(...args: unknown[]): Promise<unknown> {
   const [id, mode] = args as [string, BodyMode];
 
-  // Check if body was already consumed
   if (consumedResponses.has(id)) {
     throw new Error("Response body has already been consumed");
   }
 
-  // Get cached response
   const cached = responseCache.get(id);
   if (!cached) {
     throw new Error(
@@ -147,22 +102,18 @@ async function handleFetchBody(...args: unknown[]): Promise<unknown> {
     );
   }
 
-  // Check if expired
   if (cached.expiresAt <= Date.now()) {
     responseCache.delete(id);
     throw new Error("Response has expired (60s TTL)");
   }
 
-  // Mark as consumed and remove from cache
   consumedResponses.add(id);
   responseCache.delete(id);
 
-  // Clean up consumed set after TTL to prevent memory leak
   setTimeout(() => consumedResponses.delete(id), RESPONSE_TTL_MS);
 
   const { response } = cached;
 
-  // Read body based on mode
   switch (mode) {
     case "text":
       return response.text();
@@ -189,17 +140,6 @@ async function handleFetchBody(...args: unknown[]): Promise<unknown> {
   }
 }
 
-// ============================================================================
-// Scripting Handlers
-// ============================================================================
-
-/**
- * Execute a function in the page's main world context.
- * Bypasses both extension CSP and page CSP restrictions on eval/new Function.
- * Uses the sender's tab ID automatically.
- *
- * RPC signature: scripting.executeInMainWorld(func: string, args: unknown[])
- */
 const handleExecuteInMainWorld = withContext(
   async (ctx: RpcContext, ...rpcArgs: unknown[]): Promise<unknown> => {
     const [func, args] = rpcArgs as [string, unknown[]];
@@ -209,13 +149,10 @@ const handleExecuteInMainWorld = withContext(
       throw new Error("Cannot determine tab ID from sender");
     }
 
-    // Create a Trusted Types policy and use eval to execute dynamic code
-    // chrome.scripting.executeScript bypasses CSP, but we need TrustedTypes for eval
     const executeWithTrustedTypes = (
       funcString: string,
       funcArgs: unknown[],
     ) => {
-      // Create a Trusted Types policy if the API exists and we haven't already
       const w = window as Window & {
         trustedTypes?: {
           createPolicy: (
@@ -232,20 +169,16 @@ const handleExecuteInMainWorld = withContext(
             createScript: (input: string) => input,
           });
         } catch {
-          // Policy creation might fail if a default policy exists or CSP restricts it
-          // In that case, we'll try direct eval below
+          // A page policy or CSP may prevent Fiber from creating its policy.
         }
       }
 
-      // Execute the function using eval with TrustedScript if available
       try {
         const code = `(${funcString}).apply(null, ${JSON.stringify(funcArgs)})`;
         if (w.__fiberTTPolicy) {
           const trustedCode = w.__fiberTTPolicy.createScript(code);
-          // Use indirect eval to execute TrustedScript
           return (0, eval)(trustedCode as string);
         } else {
-          // Fallback: try direct eval (works on sites without Trusted Types)
           return (0, eval)(code);
         }
       } catch (e) {
@@ -268,14 +201,6 @@ const handleExecuteInMainWorld = withContext(
   },
 );
 
-// ============================================================================
-// RPC Server Setup
-// ============================================================================
-
-/**
- * Wrap Chrome API methods to preserve their `this` context.
- * Chrome API methods throw "Illegal invocation" if called without proper binding.
- */
 function bindChromeMethods<T extends object>(obj: T): T {
   const bound: Record<string, unknown> = {};
   for (const key of Object.keys(obj)) {
@@ -291,13 +216,7 @@ function bindChromeMethods<T extends object>(obj: T): T {
   return bound as T;
 }
 
-/**
- * RPC handlers for Chrome API passthrough and fetch proxy.
- * Each namespace is exposed directly, allowing the RPC layer to resolve
- * nested methods like "tabs.query" -> handlers.tabs.query
- */
 const handlers: RpcHandlers = {
-  // Chrome API passthrough (bound to preserve context)
   tabs: bindChromeMethods(chrome.tabs),
   storage: {
     local: bindChromeMethods(chrome.storage.local),
@@ -308,31 +227,12 @@ const handlers: RpcHandlers = {
     executeInMainWorld: handleExecuteInMainWorld,
   },
 
-  // Fetch proxy handlers
   fetch: handleFetch,
   fetchBody: handleFetchBody,
 };
 
 createRpcServer(handlers);
 
-// ============================================================================
-// Page CSP Relaxation
-// ============================================================================
-
-/**
- * Strip Content-Security-Policy response headers from document loads so that
- * `executeInMainWorld` can run dynamic rule logic via `eval`.
- *
- * `chrome.scripting.executeScript` (world: "MAIN") only bypasses CSP for the
- * injected function body itself — any `eval`/`new Function` it then performs is
- * still gated by the page's `script-src`. Sites that ship `script-src` without
- * `'unsafe-eval'` and without `require-trusted-types-for` (e.g. GitHub) leave no
- * Trusted Types escape hatch, so the only reliable way to keep eval-based rule
- * execution working is to remove the page CSP before the document is parsed.
- *
- * Requires the `declarativeNetRequest` permission and host permissions for the
- * affected pages. No-op when the API is unavailable.
- */
 const CSP_RELAX_RULE_ID = 1;
 
 async function setupCspRelaxation(): Promise<void> {
@@ -379,13 +279,6 @@ async function setupCspRelaxation(): Promise<void> {
 
 setupCspRelaxation();
 
-// ============================================================================
-// Action Click Handler
-// ============================================================================
-
-/**
- * When the extension icon is clicked, send a toggle message to the active tab.
- */
 chrome.action.onClicked.addListener((tab) => {
   if (tab.id) {
     chrome.tabs.sendMessage(tab.id, { type: "fiber:toggle-overlay" });

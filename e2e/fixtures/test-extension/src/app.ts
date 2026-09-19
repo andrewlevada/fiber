@@ -9,12 +9,9 @@ declare module "fiber-extension" {
   }
 }
 
-// Cast to proper types (Deno can't resolve types from JS imports automatically)
 const ext = extUntyped as unknown as ExtApi;
 const overlay = overlayUntyped as unknown as Overlay;
 
-// Content scripts run in isolated context - use custom events to communicate with page
-// Listen for test commands from the page and respond via custom events
 globalThis.addEventListener("fiber-test-command", async (e) => {
   const { command, args, id } = (e as CustomEvent).detail;
   let result: unknown;

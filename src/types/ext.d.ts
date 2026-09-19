@@ -1,14 +1,3 @@
-/**
- * TypeScript Definitions for ext API
- *
- * These types mirror Chrome API types but ensure all methods return Promise.
- * This is because all Chrome API calls go through RPC in content scripts.
- */
-
-// ============================================================================
-// Tabs API
-// ============================================================================
-
 export interface Tab {
   id?: number;
   index: number;
@@ -115,53 +104,23 @@ export interface TabsApi {
   goForward(tabId?: number): Promise<void>;
 }
 
-// ============================================================================
-// Storage API
-// ============================================================================
-
-/**
- * Per-area schema interfaces. Extend these via module augmentation in your
- * extension to get fully-typed `set`/`get` without any casts.
- *
- * @example
- * ```ts
- * // e.g. my-extension/src/types/storage.d.ts
- * declare module "fiber-extension" {
- *   interface FiberStorageLocal {
- *     "my-key": string;
- *     "my-counter": number;
- *   }
- * }
- * ```
- */
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+// deno-lint-ignore no-empty-interface
 export interface FiberStorageLocal {}
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+// deno-lint-ignore no-empty-interface
 export interface FiberStorageSync {}
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+// deno-lint-ignore no-empty-interface
 export interface FiberStorageSession {}
 
-/**
- * A strongly-typed storage area whose `get`/`set`/`remove` methods are all
- * constrained to the keys declared in schema `S`.
- *
- * Chrome never includes unset keys in the `get` result, so all return types
- * use `Partial` (optional properties).
- */
-export interface StorageAreaFor<S extends Record<string, unknown>> {
-  /** Retrieve all stored items as a partial snapshot of the schema. */
+export interface StorageAreaFor<S extends object> {
   get(): Promise<Partial<S>>;
-  /** Retrieve a single key. The property is absent if the key is not set. */
   get<K extends keyof S & string>(key: K): Promise<Pick<Partial<S>, K>>;
-  /** Retrieve a subset of keys. Properties absent in storage are omitted. */
   get<K extends keyof S & string>(keys: K[]): Promise<Pick<Partial<S>, K>>;
-  /** Retrieve items using an object of default values. */
   get(defaults: Partial<S>): Promise<Partial<S>>;
   getBytesInUse(
     keys?: (keyof S & string) | (keyof S & string)[] | null,
   ): Promise<number>;
   set(items: Partial<S>): Promise<void>;
-  remove(keys: (keyof S & string) | (keyof S & string)[]): Promise<void>;
+  remove(keys: string | string[]): Promise<void>;
   clear(): Promise<void>;
 }
 
@@ -177,118 +136,37 @@ export interface StorageApi {
   managed: Pick<StorageAreaFor<FiberStorageLocal>, "get" | "getBytesInUse">;
 }
 
-// ============================================================================
-// Scripting API
-// ============================================================================
-
 export interface ScriptingApi {
-  /**
-   * Execute a function in the page's main world context.
-   * Bypasses extension CSP restrictions on eval/new Function.
-   *
-   * Use this when you need to execute dynamically generated code that would
-   * otherwise be blocked by Content Security Policy in the content script.
-   *
-   * @param func - Function to execute (will be stringified and run in page context)
-   * @param args - Arguments to pass to the function (must be JSON-serializable)
-   * @returns The return value of the function
-   *
-   * @example
-   * ```ts
-   * // Execute code that uses new Function() - blocked in content scripts
-   * await ext.scripting.executeInMainWorld((selector, code) => {
-   *   const elements = document.querySelectorAll(selector);
-   *   const fn = new Function("element", code);
-   *   elements.forEach(el => fn(el));
-   * }, [".my-class", "element.style.display = 'none'"]);
-   * ```
-   */
   executeInMainWorld<T, A extends unknown[]>(
     func: (...args: A) => T,
     args: A,
   ): Promise<T>;
 }
 
-// ============================================================================
-// Fetch Proxy Types
-// ============================================================================
-
-/**
- * Response handle returned by ext.fetch.
- * Body methods trigger RPC calls to consume the cached response in background.
- *
- * Important behavior:
- * - Body can only be consumed once (standard fetch behavior)
- * - Response is cached in background for 60 seconds
- * - ArrayBuffer and Blob are base64-encoded for RPC transport
- * - AbortSignal is not supported (will be ignored with a warning)
- */
 export interface FetchResponse {
-  /** True if status is in the 200-299 range */
   readonly ok: boolean;
-  /** HTTP status code */
   readonly status: number;
-  /** HTTP status text (e.g., "OK", "Not Found") */
   readonly statusText: string;
-  /** Response headers as a plain object */
   readonly headers: Record<string, string>;
 
-  /**
-   * Read body as text. Can only be called once.
-   * @throws Error if body was already consumed or response expired
-   */
   text(): Promise<string>;
 
-  /**
-   * Read body as JSON. Can only be called once.
-   * @throws Error if body was already consumed, response expired, or JSON is invalid
-   */
   json(): Promise<unknown>;
 
-  /**
-   * Read body as ArrayBuffer. Can only be called once.
-   * Note: Data is base64-encoded during transport and decoded on client.
-   * @throws Error if body was already consumed or response expired
-   */
   arrayBuffer(): Promise<ArrayBuffer>;
 
-  /**
-   * Read body as Blob. Can only be called once.
-   * Note: Data is base64-encoded during transport and decoded on client.
-   * @throws Error if body was already consumed or response expired
-   */
   blob(): Promise<Blob>;
 }
 
-/**
- * Fetch function type for ext.fetch.
- * Similar to global fetch() but executes in the background script.
- *
- * Limitations:
- * - Only string request bodies are supported
- * - AbortSignal is not supported
- * - Response body can only be read once
- * - Response expires after 60 seconds if not consumed
- */
 export type FetchFn = (
   input: string | URL,
   init?: RequestInit,
 ) => Promise<FetchResponse>;
-
-// ============================================================================
-// Main ext API
-// ============================================================================
 
 export interface ExtApi {
   tabs: TabsApi;
   storage: StorageApi;
   scripting: ScriptingApi;
 
-  /**
-   * Fetch API proxy that executes in the background script.
-   * Useful for bypassing CORS restrictions in content scripts.
-   *
-   * Note: Response body can only be read once (standard fetch behavior).
-   */
   fetch: FetchFn;
 }

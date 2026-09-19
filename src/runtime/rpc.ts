@@ -1,13 +1,6 @@
-/**
- * RPC Transport Layer
- *
- * Hidden RPC layer for communication between content scripts and background
- */
-
-// Types
 export interface RpcRequest {
   id: string;
-  method: string; // e.g., "tabs.query"
+  method: string;
   args: unknown[];
 }
 
@@ -35,12 +28,10 @@ export type RpcHandlers = Record<
   RpcHandler | RpcContextHandler | Record<string, unknown>
 >;
 
-const RPC_TIMEOUT_MS = 30_000;
-
-/** Symbol to mark handlers that need RPC context (sender info) */
 export const needsContext = Symbol("needsContext");
 
-/** Mark a handler as needing RPC context (sender info) */
+const RPC_TIMEOUT_MS = 30_000;
+
 export function withContext(
   handler: RpcContextHandler,
 ): RpcContextHandler & { [needsContext]: true } {
@@ -49,9 +40,6 @@ export function withContext(
   return wrapped;
 }
 
-/**
- * Resolve nested handler paths like "tabs.query" -> handlers.tabs.query
- */
 export function resolveHandler(
   handlers: Record<string, unknown>,
   method: string,
@@ -67,10 +55,6 @@ export function resolveHandler(
   return typeof current === "function" ? (current as RpcHandler) : undefined;
 }
 
-/**
- * Creates an RPC client for content script side.
- * Uses chrome.runtime.sendMessage to communicate with background.
- */
 export function createRpcClient(): RpcClient {
   return {
     async call(method: string, args: unknown[]): Promise<unknown> {
@@ -87,7 +71,6 @@ export function createRpcClient(): RpcClient {
         }, RPC_TIMEOUT_MS);
       });
 
-      // Race the actual request against the timeout
       const response = await Promise.race([
         chrome.runtime.sendMessage(request) as Promise<RpcResponse>,
         timeoutPromise,
@@ -104,10 +87,6 @@ export function createRpcClient(): RpcClient {
   };
 }
 
-/**
- * Creates an RPC server for background side.
- * Handles incoming messages and dispatches to appropriate handlers.
- */
 export function createRpcServer(handlers: RpcHandlers): void {
   chrome.runtime.onMessage.addListener(
     (
@@ -115,7 +94,6 @@ export function createRpcServer(handlers: RpcHandlers): void {
       sender,
       sendResponse: (response: RpcResponse) => void,
     ) => {
-      // Validate sender is from this extension - fail fast with clear error
       if (sender.id !== chrome.runtime.id) {
         sendResponse({
           id: msg.id,
@@ -124,7 +102,6 @@ export function createRpcServer(handlers: RpcHandlers): void {
         return true;
       }
 
-      // Validate message structure
       if (!msg.id || !msg.method || !Array.isArray(msg.args)) {
         sendResponse({
           id: msg.id ?? "",
@@ -145,7 +122,6 @@ export function createRpcServer(handlers: RpcHandlers): void {
         return true;
       }
 
-      // Check if handler needs context (sender info)
       const ctx: RpcContext = { sender };
       const callHandler = () =>
         (handler as { [needsContext]?: boolean })[needsContext]
@@ -165,7 +141,7 @@ export function createRpcServer(handlers: RpcHandlers): void {
           })
         );
 
-      return true; // async response
+      return true;
     },
   );
 }

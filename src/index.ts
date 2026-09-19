@@ -1,17 +1,10 @@
+// Web Components Polyfill
+// because Content Script's environment does not provide support built-in yet
 import "@webcomponents/webcomponentsjs";
-
-/**
- * Fiber Extension - Main Exports
- *
- * This module provides the main public API for content scripts:
- * - `ext`: Proxy for Chrome APIs that works in content scripts
- * - `overlay`: Shadow DOM container for rendering UI
- */
 
 export { ext } from "./runtime/ext.ts";
 export { overlay } from "./runtime/overlay.ts";
 
-// Re-export types for convenience
 export type {
   ExtApi,
   FetchFn,

@@ -1,9 +1,5 @@
 #!/usr/bin/env -S deno run --allow-read --allow-run --allow-env
 
-/**
- * Cursor agent (and some sandboxes) set HOME under cursor-sandbox-cache; Playwright
- * then looks for Chromium in that empty tree. Point at normal OS cache using USER.
- */
 function envForPlaywright(): Record<string, string> {
   const env = Deno.env.toObject();
   const cur = env.PLAYWRIGHT_BROWSERS_PATH ?? "";
@@ -41,7 +37,6 @@ function envForPlaywright(): Record<string, string> {
 
 const testsDir = new URL("./tests", import.meta.url).pathname;
 
-// Get all test files sorted alphabetically
 const testFiles = [...Deno.readDirSync(testsDir)]
   .filter((f) => f.name.endsWith(".spec.ts"))
   .map((f) => f.name)
@@ -57,8 +52,6 @@ if (args.includes("--list") || args.includes("-l")) {
   Deno.exit(0);
 }
 
-// If no args, run all tests
-// Note: Playwright requires Node.js, so we use npx to run it
 if (args.length === 0) {
   const cmd = new Deno.Command("npx", {
     args: ["playwright", "test", "--config=e2e/playwright.config.ts"],
@@ -71,7 +64,6 @@ if (args.length === 0) {
   Deno.exit(result.code);
 }
 
-// Map numbers to test files
 const selectedFiles: string[] = [];
 for (const arg of args) {
   const num = parseInt(arg, 10);

@@ -84,14 +84,12 @@ Load `dist/` folder in `chrome://extensions`.
 ```ts
 import { ext } from "fiber-extension";
 
-// Tabs
 const tabs = await ext.tabs.query({ currentWindow: true });
 const tab = await ext.tabs.get(123);
 await ext.tabs.create({ url: "https://example.com" });
 await ext.tabs.update(tabId, { pinned: true });
 await ext.tabs.remove(tabId);
 
-// Storage
 await ext.storage.local.set({ key: "value" });
 const data = await ext.storage.local.get("key");
 await ext.storage.sync.clear();
@@ -104,7 +102,6 @@ By default, `ext.storage.local` (and `.sync`, `.session`) accept and return
 schema interfaces once in your project:
 
 ```ts
-// src/types/storage.d.ts
 declare module "fiber-extension" {
   interface FiberStorageLocal {
     "my-api-key": string;
@@ -117,12 +114,10 @@ After that, `set` and `get` are both constrained to those exact types—no type
 assertions needed at call sites:
 
 ```ts
-// ✅ TypeScript knows this is `{ "my-api-key"?: string }`
 const result = await ext.storage.local.get("my-api-key");
-const key = result["my-api-key"] ?? null; // string | null
+const key = result["my-api-key"] ?? null;
 
-// ✅ Rejects unknown keys or wrong value types at compile time
-await ext.storage.local.set({ "my-api-key": 42 }); // TS error: not assignable to string
+await ext.storage.local.set({ "my-api-key": 42 });
 ```
 
 The same pattern applies to `FiberStorageSync` and `FiberStorageSession`.
@@ -139,7 +134,6 @@ const response = await ext.fetch("https://api.example.com/data", {
 });
 
 const data = await response.json();
-// Also: response.text(), response.arrayBuffer(), response.blob()
 ```
 
 ### Execute in Main World
@@ -151,7 +145,6 @@ context:
 ```ts
 import { ext } from "fiber-extension";
 
-// Execute a function in the page's main world (bypasses extension CSP)
 await ext.scripting.executeInMainWorld(
   (selector, code) => {
     const elements = document.querySelectorAll(selector);
@@ -170,7 +163,6 @@ Requires `scripting` permission in manifest.
 import { overlay } from "fiber-extension";
 import { html } from "lit";
 
-// Show overlay (creates or updates)
 overlay.show(html`
   <div
     style="position: fixed; top: 20px; right: 20px; background: white; padding: 16px;"
@@ -180,10 +172,8 @@ overlay.show(html`
   </div>
 `);
 
-// Hide overlay
 overlay.hide();
 
-// Or toggle on extension icon click
 overlay.showOnAction(html`
   <div
     style="position: fixed; top: 20px; right: 20px; background: white; padding: 16px;"

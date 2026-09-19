@@ -1,15 +1,6 @@
-/**
- * Fetch Proxy for Content Scripts
- *
- * Provides a fetch-like API that executes requests in the background script,
- * bypassing CORS restrictions. Response bodies are cached in background and
- * streamed back via RPC when consumed.
- */
-
 import type { FetchFn, FetchResponse } from "../types/ext.d.ts";
 import type { RpcClient } from "./rpc.ts";
 
-/** Metadata returned from background after initiating fetch */
 interface FetchMetadata {
   id: string;
   ok: boolean;
@@ -18,10 +9,8 @@ interface FetchMetadata {
   headers: Record<string, string>;
 }
 
-/** Body read modes supported by fetchBody RPC */
 type BodyMode = "text" | "json" | "arrayBuffer" | "blob";
 
-/** Serializable RequestInit for RPC transport */
 interface SerializableRequestInit {
   method?: string;
   headers?: Record<string, string>;
@@ -34,13 +23,26 @@ interface SerializableRequestInit {
   referrerPolicy?: ReferrerPolicy;
   integrity?: string;
   keepalive?: boolean;
-  signal?: undefined; // Cannot serialize AbortSignal
+  signal?: undefined;
 }
 
-/**
- * Convert RequestInit to a serializable format for RPC transport.
- * Headers are normalized to a plain object, body to string.
- */
+export function createFetchProxy(rpc: RpcClient): FetchFn {
+  return async (
+    input: string | URL,
+    init?: RequestInit,
+  ): Promise<FetchResponse> => {
+    const url = input instanceof URL ? input.href : input;
+    const serializedInit = serializeInit(init);
+
+    const meta = await rpc.call("fetch", [
+      url,
+      serializedInit,
+    ]) as FetchMetadata;
+
+    return createResponseProxy(rpc, meta);
+  };
+}
+
 function serializeInit(
   init?: RequestInit,
 ): SerializableRequestInit | undefined {
@@ -58,7 +60,6 @@ function serializeInit(
   if (init.integrity) serialized.integrity = init.integrity;
   if (init.keepalive !== undefined) serialized.keepalive = init.keepalive;
 
-  // Normalize headers to plain object
   if (init.headers) {
     if (init.headers instanceof Headers) {
       serialized.headers = {};
@@ -75,7 +76,6 @@ function serializeInit(
     }
   }
 
-  // Serialize body to string (only string bodies supported for now)
   if (init.body !== undefined) {
     if (typeof init.body === "string") {
       serialized.body = init.body;
@@ -84,7 +84,6 @@ function serializeInit(
     }
   }
 
-  // AbortSignal cannot be serialized
   if (init.signal) {
     console.warn("ext.fetch: AbortSignal is not supported and will be ignored");
   }
@@ -92,21 +91,6 @@ function serializeInit(
   return serialized;
 }
 
-/**
- * Decode base64-encoded binary data back to ArrayBuffer
- */
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
-
-/**
- * Creates a Response proxy that lazily fetches body via RPC.
- */
 function createResponseProxy(
   rpc: RpcClient,
   meta: FetchMetadata,
@@ -165,21 +149,13 @@ function createResponseProxy(
   };
 }
 
-/**
- * Creates a fetch proxy that executes requests in the background script.
- */
-export function createFetchProxy(rpc: RpcClient): FetchFn {
-  return async (
-    input: string | URL,
-    init?: RequestInit,
-  ): Promise<FetchResponse> => {
-    const url = input instanceof URL ? input.href : input;
-    const serializedInit = serializeInit(init);
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
 
-    const meta = await rpc.call("fetch", [
-      url,
-      serializedInit,
-    ]) as FetchMetadata;
-    return createResponseProxy(rpc, meta);
-  };
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  return bytes.buffer;
 }

@@ -13,10 +13,6 @@ export interface ExtensionFixtures {
   serviceWorker: Worker;
 }
 
-/**
- * Helper to call content script functions via custom events.
- * Content scripts run in isolated context, so we use events to communicate.
- */
 export function callContentScript(
   page: Page,
   command: string,
@@ -42,7 +38,6 @@ export function callContentScript(
           }),
         );
 
-        // Timeout after 10 seconds
         setTimeout(() => {
           globalThis.removeEventListener("fiber-test-response", handler);
           reject(new Error(`Timeout waiting for ${command}`));
