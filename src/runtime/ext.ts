@@ -1,10 +1,10 @@
 import type { ExtApi } from "../types/ext.d.ts";
-import { createRpcClient } from "./rpc.ts";
 import { createFetchProxy } from "./ext-fetch.ts";
-
-const rpc = createRpcClient();
+import { createRpcClient } from "./rpc.ts";
 
 export const ext = createApiProxy() as ExtApi;
+
+const rpc = createRpcClient();
 
 function createApiProxy(path: string[] = []): unknown {
   const emptyTarget = () => {};

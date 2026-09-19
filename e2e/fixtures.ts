@@ -7,11 +7,54 @@ import {
 } from "@playwright/test";
 import path from "path";
 
+export { expect } from "@playwright/test";
+
 export interface ExtensionFixtures {
   context: BrowserContext;
   extensionId: string;
   serviceWorker: Worker;
 }
+
+export const test = base.extend<ExtensionFixtures>({
+  // deno-lint-ignore no-empty-pattern
+  context: async ({}, use) => {
+    const dir = import.meta.dirname;
+    if (!dir) throw new Error("import.meta.dirname is not defined");
+
+    const pathToExtension = path.join(dir, "fixtures/test-extension/dist");
+    const context = await chromium.launchPersistentContext("", {
+      headless: false,
+      args: [
+        `--disable-extensions-except=${pathToExtension}`,
+        `--load-extension=${pathToExtension}`,
+      ],
+    });
+
+    await use(context);
+
+    await context.close();
+  },
+
+  extensionId: async ({ context }, use) => {
+    let [serviceWorker] = context.serviceWorkers();
+    if (!serviceWorker) {
+      serviceWorker = await context.waitForEvent("serviceworker");
+    }
+
+    const extensionId = serviceWorker.url().split("/")[2];
+
+    await use(extensionId);
+  },
+
+  serviceWorker: async ({ context }, use) => {
+    let [serviceWorker] = context.serviceWorkers();
+    if (!serviceWorker) {
+      serviceWorker = await context.waitForEvent("serviceworker");
+    }
+
+    await use(serviceWorker);
+  },
+});
 
 export function callContentScript(
   page: Page,
@@ -25,8 +68,11 @@ export function callContentScript(
 
         const handler = (e: Event) => {
           const { id: responseId, result, error } = (e as CustomEvent).detail;
+
           if (responseId !== id) return;
+
           globalThis.removeEventListener("fiber-test-response", handler);
+
           if (error) reject(new Error(error));
           else resolve(result);
         };
@@ -47,41 +93,3 @@ export function callContentScript(
     { command, args },
   );
 }
-
-export const test = base.extend<ExtensionFixtures>({
-  // deno-lint-ignore no-empty-pattern
-  context: async ({}, use) => {
-    const dir = import.meta.dirname;
-    if (!dir) throw new Error("import.meta.dirname is not defined");
-
-    const pathToExtension = path.join(dir, "fixtures/test-extension/dist");
-    const context = await chromium.launchPersistentContext("", {
-      headless: false,
-      args: [
-        `--disable-extensions-except=${pathToExtension}`,
-        `--load-extension=${pathToExtension}`,
-      ],
-    });
-    await use(context);
-    await context.close();
-  },
-
-  extensionId: async ({ context }, use) => {
-    let [serviceWorker] = context.serviceWorkers();
-    if (!serviceWorker) {
-      serviceWorker = await context.waitForEvent("serviceworker");
-    }
-    const extensionId = serviceWorker.url().split("/")[2];
-    await use(extensionId);
-  },
-
-  serviceWorker: async ({ context }, use) => {
-    let [serviceWorker] = context.serviceWorkers();
-    if (!serviceWorker) {
-      serviceWorker = await context.waitForEvent("serviceworker");
-    }
-    await use(serviceWorker);
-  },
-});
-
-export { expect } from "@playwright/test";

@@ -1,7 +1,9 @@
 # Fiber
 
-Chrome extension framework that improves developer enxipience. Call Chrome APIs
-and render UI from the same code. Here is a quick snippet:
+![Construction tape](/readme-images/wip.png)
+
+In-development chrome extension framework that improves developer experience.
+Call Chrome APIs and render UI from the same code. Here is a quick snippet:
 
 ```ts
 import { ext, overlay } from "fiber-extension";
@@ -16,13 +18,15 @@ overlay.show(html`
 ```
 
 > **Note:** Currently Fiber is built to work with [Lit](https://lit.dev/). React
-> and other frameworks are not guaranteed to work. This might chnage in the
+> and other frameworks are not guaranteed to work. This might change in the
 > future
 
 ## Installation
 
+Requires Vite to build
+
 ```bash
-npm install fiber-extension
+pnpm install fiber-extension
 ```
 
 In `vite.config.ts`:

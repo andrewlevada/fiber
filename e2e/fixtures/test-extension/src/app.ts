@@ -12,7 +12,11 @@ declare module "fiber-extension" {
 const ext = extUntyped as unknown as ExtApi;
 const overlay = overlayUntyped as unknown as Overlay;
 
-globalThis.addEventListener("fiber-test-command", async (e) => {
+globalThis.addEventListener("fiber-test-command", handleTestCommand);
+
+document.documentElement.setAttribute("data-fiber-loaded", "true");
+
+async function handleTestCommand(e: Event): Promise<void> {
   const { command, args, id } = (e as CustomEvent).detail;
   let result: unknown;
   let error: string | undefined;
@@ -22,20 +26,25 @@ globalThis.addEventListener("fiber-test-command", async (e) => {
       case "testRpc":
         result = await ext.tabs.query({ active: true, currentWindow: true });
         break;
+
       case "testStorage":
         await ext.storage.local.set({ testKey: "testValue" });
         result = await ext.storage.local.get("testKey");
         await ext.storage.local.remove("testKey");
         break;
+
       case "testFetch": {
         const response = await ext.fetch(args[0] as string);
+
         result = {
           ok: response.ok,
           status: response.status,
           body: await response.text(),
         };
+
         break;
       }
+
       case "attachOverlay":
         overlay.show(html`
           <div
@@ -52,12 +61,15 @@ globalThis.addEventListener("fiber-test-command", async (e) => {
             <button data-testid="overlay-button">Click Me</button>
           </div>
         `);
+
         result = true;
         break;
+
       case "detachOverlay":
         overlay.hide();
         result = true;
         break;
+
       default:
         error = `Unknown command: ${command}`;
     }
@@ -70,6 +82,4 @@ globalThis.addEventListener("fiber-test-command", async (e) => {
       detail: { id, result, error },
     }),
   );
-});
-
-document.documentElement.setAttribute("data-fiber-loaded", "true");
+}

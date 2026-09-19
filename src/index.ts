@@ -1,5 +1,4 @@
-// Web Components Polyfill
-// because Content Script's environment does not provide support built-in yet
+// Content scripts do not yet provide native Web Components support
 import "@webcomponents/webcomponentsjs";
 
 export { ext } from "./runtime/ext.ts";
@@ -7,8 +6,6 @@ export { overlay } from "./runtime/overlay.ts";
 
 export type {
   ExtApi,
-  FetchFn,
-  FetchResponse,
   FiberStorageLocal,
   FiberStorageSession,
   FiberStorageSync,

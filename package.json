@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "description": "Chrome extension framework that creates the illusion of a single program",
   "type": "module",
+
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+
   "scripts": {
     "build": "deno task build",
     "typecheck": "deno task typecheck",
     "test:e2e": "deno task test:e2e"
   },
+
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -40,6 +43,7 @@
       "import": "./dist/runtime/overlay-key-trap.js"
     }
   },
+
   "devDependencies": {
     "@playwright/test": "^1.51.0",
     "@types/node": "25.3.3",
@@ -47,10 +51,12 @@
     "esbuild": "0.27.3",
     "lit-html": "^3.3.2"
   },
+
   "peerDependencies": {
     "lit": "^3.0.0",
     "vite": "^6.0.0 || ^7.0.0"
   },
+
   "peerDependenciesMeta": {
     "lit": {
       "optional": true
@@ -59,19 +65,24 @@
       "optional": true
     }
   },
+
   "keywords": [
     "chrome-extension",
     "vite",
     "typescript",
     "framework"
   ],
+
   "license": "MIT",
+
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
     ]
   },
+
   "dependencies": {
-    "@webcomponents/webcomponentsjs": "^2.8.0"
+    "@webcomponents/webcomponentsjs": "^2.8.0",
+    "chrome-types": "^0.1.327"
   }
 }

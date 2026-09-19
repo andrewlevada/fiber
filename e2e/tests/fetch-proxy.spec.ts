@@ -1,5 +1,11 @@
 import { callContentScript, expect, test } from "../fixtures.ts";
 
+interface FetchResult {
+  ok: boolean;
+  status: number;
+  body: string;
+}
+
 test.describe("Fetch Proxy", () => {
   test("should fetch data through background script", async ({ context }) => {
     const page = await context.newPage();
@@ -11,11 +17,7 @@ test.describe("Fetch Proxy", () => {
       page,
       "testFetch",
       "https://httpbin.org/get",
-    ) as {
-      ok: boolean;
-      status: number;
-      body: string;
-    };
+    ) as FetchResult;
 
     expect(result.ok).toBe(true);
     expect(result.status).toBe(200);
@@ -32,11 +34,7 @@ test.describe("Fetch Proxy", () => {
       page,
       "testFetch",
       "https://httpbin.org/status/404",
-    ) as {
-      ok: boolean;
-      status: number;
-      body: string;
-    };
+    ) as FetchResult;
 
     expect(result.ok).toBe(false);
     expect(result.status).toBe(404);
@@ -52,11 +50,7 @@ test.describe("Fetch Proxy", () => {
       page,
       "testFetch",
       "https://api.github.com/zen",
-    ) as {
-      ok: boolean;
-      status: number;
-      body: string;
-    };
+    ) as FetchResult;
 
     expect(result.ok).toBe(true);
     expect(result.status).toBe(200);

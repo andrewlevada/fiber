@@ -1,4 +1,3 @@
-import type { FetchFn, FetchResponse } from "../types/ext.d.ts";
 import type { RpcClient } from "./rpc.ts";
 
 interface FetchMetadata {
@@ -7,31 +6,21 @@ interface FetchMetadata {
   status: number;
   statusText: string;
   headers: Record<string, string>;
+  redirected: boolean;
+  type: ResponseType;
+  url: string;
 }
 
-type BodyMode = "text" | "json" | "arrayBuffer" | "blob";
-
-interface SerializableRequestInit {
-  method?: string;
-  headers?: Record<string, string>;
-  body?: string;
-  mode?: RequestMode;
-  credentials?: RequestCredentials;
-  cache?: RequestCache;
-  redirect?: RequestRedirect;
-  referrer?: string;
-  referrerPolicy?: ReferrerPolicy;
-  integrity?: string;
-  keepalive?: boolean;
-  signal?: undefined;
-}
-
-export function createFetchProxy(rpc: RpcClient): FetchFn {
-  return async (
-    input: string | URL,
+export function createFetchProxy(rpc: RpcClient): typeof fetch {
+  const proxy = async (
+    input: RequestInfo | URL,
     init?: RequestInit,
-  ): Promise<FetchResponse> => {
-    const url = input instanceof URL ? input.href : input;
+  ): Promise<Response> => {
+    const url = input instanceof Request
+      ? input.url
+      : input instanceof URL
+      ? input.href
+      : input;
     const serializedInit = serializeInit(init);
 
     const meta = await rpc.call("fetch", [
@@ -39,8 +28,27 @@ export function createFetchProxy(rpc: RpcClient): FetchFn {
       serializedInit,
     ]) as FetchMetadata;
 
-    return createResponseProxy(rpc, meta);
+    return createResponseProxy(rpc, meta) as unknown as Response;
   };
+
+  return proxy;
+}
+
+interface SerializableRequestInit {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  mode?: RequestMode;
+
+  credentials?: RequestCredentials;
+  cache?: RequestCache;
+  redirect?: RequestRedirect;
+  referrer?: string;
+
+  referrerPolicy?: ReferrerPolicy;
+  integrity?: string;
+  keepalive?: boolean;
+  signal?: undefined;
 }
 
 function serializeInit(
@@ -54,10 +62,12 @@ function serializeInit(
   if (init.mode) serialized.mode = init.mode;
   if (init.credentials) serialized.credentials = init.credentials;
   if (init.cache) serialized.cache = init.cache;
+
   if (init.redirect) serialized.redirect = init.redirect;
   if (init.referrer) serialized.referrer = init.referrer;
   if (init.referrerPolicy) serialized.referrerPolicy = init.referrerPolicy;
   if (init.integrity) serialized.integrity = init.integrity;
+
   if (init.keepalive !== undefined) serialized.keepalive = init.keepalive;
 
   if (init.headers) {
@@ -91,10 +101,12 @@ function serializeInit(
   return serialized;
 }
 
+type BodyMode = "text" | "json" | "arrayBuffer" | "blob" | "bytes" | "formData";
+
 function createResponseProxy(
   rpc: RpcClient,
   meta: FetchMetadata,
-): FetchResponse {
+): Awaited<ReturnType<typeof fetch>> {
   let bodyConsumed = false;
 
   const consumeBody = async <T>(
@@ -104,49 +116,93 @@ function createResponseProxy(
     if (bodyConsumed) {
       throw new Error("Body has already been consumed");
     }
+
     bodyConsumed = true;
 
     const result = await rpc.call("fetchBody", [meta.id, mode]);
     return transform(result);
   };
 
-  return {
-    get ok() {
-      return meta.ok;
-    },
-    get status() {
-      return meta.status;
-    },
-    get statusText() {
-      return meta.statusText;
-    },
-    get headers() {
-      return meta.headers;
-    },
+  return new class {
+    readonly ok = meta.ok;
+    readonly status = meta.status;
+    readonly statusText = meta.statusText;
+    readonly headers = new Headers(meta.headers);
+    readonly redirected = meta.redirected;
+    readonly type = meta.type;
+    readonly url = meta.url;
+    readonly body = null;
+
+    get bodyUsed(): boolean {
+      return bodyConsumed;
+    }
 
     text(): Promise<string> {
       return consumeBody("text", (data) => data as string);
-    },
+    }
 
-    json(): Promise<unknown> {
+    // deno-lint-ignore no-explicit-any
+    json(): Promise<any> {
       return consumeBody("json", (data) => data);
-    },
+    }
 
     arrayBuffer(): Promise<ArrayBuffer> {
       return consumeBody(
         "arrayBuffer",
         (data) => base64ToArrayBuffer(data as string),
       );
-    },
+    }
 
     blob(): Promise<Blob> {
       return consumeBody("blob", (data) => {
         const { base64, type } = data as { base64: string; type: string };
         const buffer = base64ToArrayBuffer(base64);
+
         return new Blob([buffer], { type });
       });
-    },
-  };
+    }
+
+    bytes(): Promise<Uint8Array<ArrayBuffer>> {
+      return consumeBody(
+        "bytes",
+        (data) => new Uint8Array(base64ToArrayBuffer(data as string)),
+      );
+    }
+
+    formData(): Promise<FormData> {
+      return consumeBody("formData", (data) => {
+        const formData = new FormData();
+
+        for (
+          const entry of data as Array<{
+            name: string;
+            value: string | { base64: string; name: string; type: string };
+          }>
+        ) {
+          if (typeof entry.value === "string") {
+            formData.append(entry.name, entry.value);
+          } else {
+            const file = new File(
+              [base64ToArrayBuffer(entry.value.base64)],
+              entry.value.name,
+              { type: entry.value.type },
+            );
+            formData.append(entry.name, file);
+          }
+        }
+
+        return formData;
+      });
+    }
+
+    clone(): Response {
+      if (bodyConsumed) {
+        throw new TypeError("Response body has already been consumed");
+      }
+
+      return createResponseProxy(rpc, meta);
+    }
+  }();
 }
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {

@@ -1,5 +1,9 @@
 import type { TemplateResult } from "lit-html";
 
+export const overlay: Overlay;
+
+export function __hmrReset(): void;
+
 type OverlayContent =
   | TemplateResult
   | ((root: ShadowRoot) => TemplateResult);
@@ -11,7 +15,3 @@ export interface Overlay {
 
   hide(): void;
 }
-
-export function __hmrReset(): void;
-
-export const overlay: Overlay;

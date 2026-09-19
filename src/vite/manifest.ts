@@ -5,23 +5,25 @@ export interface ManifestV3 {
   name: string;
   version: string;
   description?: string;
-  permissions?: ManifestPermission[];
+
+  permissions?: string[];
   host_permissions?: string[];
+
   background?: {
     service_worker: string;
     type?: "module";
   };
-  content_scripts?: ManifestContentScript[];
+  content_scripts?: chrome.contentScripts.ContentScript[];
+
   icons?: Record<string, string>;
   action?: {
     default_popup?: string;
     default_icon?: string | Record<string, string>;
     default_title?: string;
   };
-  web_accessible_resources?: Array<{
-    resources: string[];
-    matches: string[];
-  }>;
+  web_accessible_resources?:
+    chrome.webAccessibleResources.WebAccessibleResource[];
+
   minimum_chrome_version?: string;
 }
 
@@ -33,7 +35,7 @@ export function buildManifest(
   const contentMatches = partial.content_scripts?.[0]?.matches ??
     hostPermissions;
 
-  const permissions: ManifestPermission[] = [...(partial.permissions ?? [])];
+  const permissions = [...(partial.permissions ?? [])];
   if (isDev && !permissions.includes("scripting")) {
     permissions.push("scripting");
   }
@@ -58,58 +60,14 @@ export function buildManifest(
   if (partial.description) manifest.description = partial.description;
   if (partial.icons) manifest.icons = partial.icons;
   manifest.action = partial.action ?? {};
+
   if (partial.web_accessible_resources) {
     manifest.web_accessible_resources = partial.web_accessible_resources;
   }
+
   if (partial.minimum_chrome_version) {
     manifest.minimum_chrome_version = partial.minimum_chrome_version;
   }
 
   return manifest;
-}
-
-export type ManifestPermission =
-  | "activeTab"
-  | "alarms"
-  | "bookmarks"
-  | "browsingData"
-  | "clipboardRead"
-  | "clipboardWrite"
-  | "contextMenus"
-  | "cookies"
-  | "declarativeContent"
-  | "declarativeNetRequest"
-  | "declarativeNetRequestWithHostAccess"
-  | "downloads"
-  | "geolocation"
-  | "history"
-  | "identity"
-  | "idle"
-  | "management"
-  | "notifications"
-  | "pageCapture"
-  | "power"
-  | "privacy"
-  | "scripting"
-  | "search"
-  | "sessions"
-  | "storage"
-  | "system.cpu"
-  | "system.memory"
-  | "system.storage"
-  | "tabCapture"
-  | "tabs"
-  | "topSites"
-  | "tts"
-  | "ttsEngine"
-  | "unlimitedStorage"
-  | "webNavigation"
-  | "webRequest";
-
-export interface ManifestContentScript {
-  matches: string[];
-  js?: string[];
-  css?: string[];
-  run_at?: "document_start" | "document_end" | "document_idle";
-  world?: "ISOLATED" | "MAIN";
 }

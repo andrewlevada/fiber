@@ -1,101 +1,17 @@
-import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
 import path from "node:path";
-import { build as esbuild } from "esbuild";
 import process from "node:process";
+import { build as esbuild } from "esbuild";
+import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
 import { buildManifest, ManifestV3 } from "./manifest.ts";
 
 export interface FiberOptions {
   manifest: Partial<ManifestV3>;
 }
 
-function generateContentEntry(_isDev: boolean, _devServerPort: number): string {
-  const appPath = path.resolve("src/app.ts").replace(/\\/g, "/");
-  return `import '${appPath}';`;
-}
-
-function generateEarlyTrapEntry(): string {
-  return `import 'fiber-extension/runtime/overlay-key-trap';`;
-}
-
-function generateBackgroundEntry(
-  isDev: boolean,
-  devServerPort: number,
-): string {
-  const devLiveReloadPoll = isDev
-    ? `
-let lastTimestamp = Date.now();
-async function checkForUpdates() {
-  try {
-    const res = await fetch('http://localhost:${devServerPort}/__fiber_timestamp');
-    const ts = await res.text();
-    if (parseInt(ts) > lastTimestamp) {
-      lastTimestamp = parseInt(ts);
-      const tabs = await chrome.tabs.query({});
-      for (const tab of tabs) {
-        if (tab.id) chrome.tabs.reload(tab.id);
-      }
-      chrome.runtime.reload();
-    }
-  } catch {}
-}
-setInterval(checkForUpdates, 1000);`
-    : "";
-
-  return `import 'fiber-extension/runtime/background';${devLiveReloadPoll}`;
-}
-
-async function bundleWithEsbuild(
-  outDir: string,
-  devServerPort: number,
-  manifestPartial: Partial<ManifestV3>,
-): Promise<void> {
-  const fs = await import("fs/promises");
-  await fs.mkdir(outDir, { recursive: true });
-
-  await esbuild({
-    stdin: {
-      contents: generateContentEntry(true, devServerPort),
-      resolveDir: process.cwd(),
-      loader: "ts",
-    },
-    bundle: true,
-    format: "iife",
-    outfile: path.join(outDir, "content.js"),
-  });
-
-  await esbuild({
-    stdin: {
-      contents: generateEarlyTrapEntry(),
-      resolveDir: process.cwd(),
-      loader: "ts",
-    },
-    bundle: true,
-    format: "iife",
-    outfile: path.join(outDir, "content-early.js"),
-  });
-
-  await esbuild({
-    stdin: {
-      contents: generateBackgroundEntry(true, devServerPort),
-      resolveDir: process.cwd(),
-      loader: "ts",
-    },
-    bundle: true,
-    format: "iife",
-    outfile: path.join(outDir, "background.js"),
-  });
-
-  const manifest = buildManifest(manifestPartial, true);
-  await fs.writeFile(
-    path.join(outDir, "manifest.json"),
-    JSON.stringify(manifest, null, 2),
-  );
-}
-
 export function fiberExtension(options: FiberOptions): Plugin {
   let isDev = false;
   let devServerPort = 5173;
-  let _resolvedConfig: ResolvedConfig;
+  let resolvedConfig: ResolvedConfig;
 
   return {
     name: "fiber-extension",
@@ -132,7 +48,7 @@ export function fiberExtension(options: FiberOptions): Plugin {
     },
 
     configResolved(config: ResolvedConfig) {
-      _resolvedConfig = config;
+      resolvedConfig = config;
       devServerPort = config.server.port ?? 5173;
     },
 
@@ -149,6 +65,7 @@ export function fiberExtension(options: FiberOptions): Plugin {
 
       server.httpServer?.once("listening", async () => {
         console.log("[fiber] Building extension...");
+
         try {
           await bundleWithEsbuild(outDir, port, options.manifest);
           console.log(
@@ -168,6 +85,7 @@ export function fiberExtension(options: FiberOptions): Plugin {
             path.relative(process.cwd(), file)
           } changed, rebuilding...`,
         );
+
         try {
           await bundleWithEsbuild(outDir, port, options.manifest);
           lastBuildTimestamp = Date.now();
@@ -189,23 +107,25 @@ export function fiberExtension(options: FiberOptions): Plugin {
       if (id.startsWith("virtual:fiber/")) {
         return id;
       }
+
       if (id === "fiber-extension") {
         return "virtual:fiber/runtime";
       }
+
       return undefined;
     },
 
     load(id: string) {
       if (id === "virtual:fiber/content") {
-        return generateContentEntry(isDev, devServerPort);
+        return contentEntryPath();
       }
 
       if (id === "virtual:fiber/content-early") {
-        return generateEarlyTrapEntry();
+        return earlyTrapEntryPath();
       }
 
       if (id === "virtual:fiber/background") {
-        return generateBackgroundEntry(isDev, devServerPort);
+        return backgroundEntryPath(isDev, devServerPort);
       }
 
       if (id === "virtual:fiber/runtime") {
@@ -220,6 +140,7 @@ export function fiberExtension(options: FiberOptions): Plugin {
 
     generateBundle() {
       const manifest = buildManifest(options.manifest, isDev);
+
       this.emitFile({
         type: "asset",
         fileName: "manifest.json",
@@ -240,7 +161,7 @@ export function fiberExtension(options: FiberOptions): Plugin {
     },
 
     async closeBundle() {
-      const outDir = _resolvedConfig.build.outDir;
+      const outDir = resolvedConfig.build.outDir;
       const contentPath = path.join(outDir, "content.js");
       const backgroundPath = path.join(outDir, "background.js");
 
@@ -277,8 +198,10 @@ export function fiberExtension(options: FiberOptions): Plugin {
         "background.js",
         "content-early.js",
       ]);
+
       const fs = await import("fs/promises");
       const files = await fs.readdir(outDir);
+
       for (const file of files) {
         if (file.endsWith(".js") && !keepFiles.has(file)) {
           await fs.unlink(path.join(outDir, file));
@@ -286,4 +209,97 @@ export function fiberExtension(options: FiberOptions): Plugin {
       }
     },
   };
+}
+
+async function bundleWithEsbuild(
+  outDir: string,
+  devServerPort: number,
+  manifestPartial: Partial<ManifestV3>,
+): Promise<void> {
+  const fs = await import("fs/promises");
+
+  await fs.mkdir(outDir, { recursive: true });
+
+  await esbuild({
+    stdin: {
+      contents: contentEntryPath(),
+      resolveDir: process.cwd(),
+      loader: "ts",
+    },
+    bundle: true,
+    format: "iife",
+    outfile: path.join(outDir, "content.js"),
+  });
+
+  await esbuild({
+    stdin: {
+      contents: earlyTrapEntryPath(),
+      resolveDir: process.cwd(),
+      loader: "ts",
+    },
+    bundle: true,
+    format: "iife",
+    outfile: path.join(outDir, "content-early.js"),
+  });
+
+  await esbuild({
+    stdin: {
+      contents: backgroundEntryPath(true, devServerPort),
+      resolveDir: process.cwd(),
+      loader: "ts",
+    },
+    bundle: true,
+    format: "iife",
+    outfile: path.join(outDir, "background.js"),
+  });
+
+  const manifest = buildManifest(manifestPartial, true);
+
+  await fs.writeFile(
+    path.join(outDir, "manifest.json"),
+    JSON.stringify(manifest, null, 2),
+  );
+}
+
+function contentEntryPath(): string {
+  const appPath = path.resolve("src/app.ts").replace(/\\/g, "/");
+
+  return `import '${appPath}';`;
+}
+
+function earlyTrapEntryPath(): string {
+  return `import 'fiber-extension/runtime/overlay-key-trap';`;
+}
+
+function backgroundEntryPath(
+  isDev: boolean,
+  devServerPort: number,
+): string {
+  const devLiveReloadPoll = isDev
+    ? `
+let lastTimestamp = Date.now();
+
+async function checkForUpdates() {
+  try {
+    const res = await fetch('http://localhost:${devServerPort}/__fiber_timestamp');
+    const ts = await res.text();
+
+    if (parseInt(ts) > lastTimestamp) {
+      lastTimestamp = parseInt(ts);
+
+      const tabs = await chrome.tabs.query({});
+
+      for (const tab of tabs) {
+        if (tab.id) chrome.tabs.reload(tab.id);
+      }
+
+      chrome.runtime.reload();
+    }
+  } catch {}
+}
+
+setInterval(checkForUpdates, 1000);`
+    : "";
+
+  return `import 'fiber-extension/runtime/background';${devLiveReloadPoll}`;
 }

@@ -1,12 +1,15 @@
-import { isEditableTarget } from "./util/editable-check.ts";
+import { isTargetEditable } from "./util/editable-check.ts";
 
 const OVERLAY_ATTR = "data-fiber-overlay";
 const OVERLAY_OPEN_ATTR = "data-fiber-overlay-open";
 
+globalThis.addEventListener("keydown", trapKey, true);
+globalThis.addEventListener("keyup", trapKey, true);
+
 function trapKey(e: KeyboardEvent): void {
   const path = e.composedPath();
 
-  if (!isEditableTarget(path[0])) return;
+  if (!isTargetEditable(path[0])) return;
 
   for (const node of path) {
     if (
@@ -19,6 +22,3 @@ function trapKey(e: KeyboardEvent): void {
     }
   }
 }
-
-globalThis.addEventListener("keydown", trapKey, true);
-globalThis.addEventListener("keyup", trapKey, true);

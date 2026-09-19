@@ -30,8 +30,6 @@ export type RpcHandlers = Record<
 
 export const needsContext = Symbol("needsContext");
 
-const RPC_TIMEOUT_MS = 30_000;
-
 export function withContext(
   handler: RpcContextHandler,
 ): RpcContextHandler & { [needsContext]: true } {
@@ -99,6 +97,7 @@ export function createRpcServer(handlers: RpcHandlers): void {
           id: msg.id,
           error: { message: "RPC rejected: invalid sender" },
         });
+
         return true;
       }
 
@@ -107,6 +106,7 @@ export function createRpcServer(handlers: RpcHandlers): void {
           id: msg.id ?? "",
           error: { message: "RPC rejected: invalid message format" },
         });
+
         return true;
       }
 
@@ -119,6 +119,7 @@ export function createRpcServer(handlers: RpcHandlers): void {
               `Unknown method (or the Fiber does not support it yet): ${msg.method}`,
           },
         });
+
         return true;
       }
 
@@ -145,3 +146,5 @@ export function createRpcServer(handlers: RpcHandlers): void {
     },
   );
 }
+
+const RPC_TIMEOUT_MS = 30_000;
