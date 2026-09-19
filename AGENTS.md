@@ -36,8 +36,8 @@ User's src/app.ts
        ▼
 ┌──────────────────────────────────────────────────┐
 │  Vite Plugin (src/vite/plugin.ts)                │
-│  - Dev: esbuild watch → dist/{content,background}.js
-│  - Prod: Rollup + esbuild post-process           │
+│  - Dev: Vite native builds on source updates → dist/
+│  - Prod: Vite native Rollup/Rolldown builds     │
 │  - Generates manifest.json from plugin options   │
 └──────────────────────────────────────────────────┘
        │

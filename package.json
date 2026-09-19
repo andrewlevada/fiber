@@ -41,6 +41,10 @@
     "./runtime/overlay-key-trap": {
       "types": "./dist/runtime/overlay-key-trap.d.ts",
       "import": "./dist/runtime/overlay-key-trap.js"
+    },
+    "./runtime/polyfill": {
+      "types": "./dist/runtime/polyfill.d.ts",
+      "import": "./dist/runtime/polyfill.js"
     }
   },
 
@@ -48,7 +52,6 @@
     "@playwright/test": "^1.51.0",
     "@types/node": "25.3.3",
     "chrome-types": "^0.1.327",
-    "esbuild": "0.27.3",
     "lit-html": "^3.3.2"
   },
 
@@ -75,14 +78,9 @@
 
   "license": "MIT",
 
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
-  },
-
   "dependencies": {
     "@webcomponents/webcomponentsjs": "^2.8.0",
-    "chrome-types": "^0.1.327"
+    "chrome-types": "^0.1.327",
+    "sharp": "^0.35.4"
   }
 }

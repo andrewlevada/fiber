@@ -1,73 +1,115 @@
 import path from "node:path";
 import process from "node:process";
-import { build as esbuild } from "esbuild";
-import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
-import { buildManifest, ManifestV3 } from "./manifest.ts";
+import {
+  build as viteBuild,
+  type InlineConfig,
+  type Plugin,
+  type ResolvedConfig,
+  type ViteDevServer,
+} from "vite";
+import { generateIcons, ICONS_DIR } from "./icons.ts";
+import { buildManifest, type FiberManifest } from "./manifest.ts";
+
+type FiberEntry = "content" | "content-early" | "background";
+
+interface FiberBuildRequest {
+  target: FiberEntry;
+  isDev: boolean;
+  devServerPort?: number;
+}
+
+type FiberInlineConfig = InlineConfig & {
+  __fiberBuild?: FiberBuildRequest;
+};
 
 export interface FiberOptions {
-  manifest: Partial<ManifestV3>;
+  manifest: FiberManifest;
 }
 
 export function fiberExtension(options: FiberOptions): Plugin {
   let isDev = false;
   let devServerPort = 5173;
-  let resolvedConfig: ResolvedConfig;
+  let buildTarget: FiberEntry = "content";
+  let projectRoot = process.cwd();
+  let resolvedConfig: ResolvedConfig | undefined;
+  let devServerState: DevServerState | undefined;
 
   return {
     name: "fiber-extension",
 
-    config(_, { command }) {
-      isDev = command === "serve";
-
-      if (isDev) {
-        return {
-          build: {
-            outDir: "dist",
-          },
-        };
-      }
+    config(config, { command }) {
+      const request = getFiberBuildRequest(config);
+      buildTarget = request?.target ?? "content";
+      isDev = request?.isDev ?? command === "serve";
 
       return {
+        resolve: {
+          conditions: [
+            "module",
+            "browser",
+            "development|production",
+            "style",
+          ],
+        },
         build: {
+          outDir: "dist",
+          emptyOutDir: buildTarget === "content",
           rollupOptions: {
-            input: {
-              content: "virtual:fiber/content",
-              "content-early": "virtual:fiber/content-early",
-              background: "virtual:fiber/background",
-            },
+            input: { [buildTarget]: entryId(buildTarget) },
             output: {
-              entryFileNames: "[name].js",
+              format: "iife",
+              entryFileNames: `${buildTarget}.js`,
               chunkFileNames: "[name].js",
+              inlineDynamicImports: true,
             },
             preserveEntrySignatures: "strict",
           },
-          outDir: "dist",
-          emptyOutDir: true,
+          minify: !isDev,
         },
       };
     },
 
     configResolved(config: ResolvedConfig) {
       resolvedConfig = config;
-      devServerPort = config.server.port ?? 5173;
+      projectRoot = config.root;
+
+      const request = getFiberBuildRequest(config.inlineConfig);
+      buildTarget = request?.target ?? "content";
+      isDev = request?.isDev ?? config.command === "serve";
+      devServerPort = request?.devServerPort ?? config.server.port ?? 5173;
     },
 
     configureServer(server: ViteDevServer) {
-      const outDir = server.config.build.outDir;
       const port = server.config.server.port ?? 5173;
-      let lastBuildTimestamp = Date.now();
+      const srcDir = path.resolve(server.config.root, "src");
+      const iconPath = options.manifest.icon
+        ? path.resolve(server.config.root, options.manifest.icon)
+        : undefined;
+
+      const state: DevServerState = {
+        config: resolvedConfig ?? server.config,
+        port,
+        srcDir,
+        iconPath,
+        lastBuildTimestamp: Date.now(),
+        buildQueue: Promise.resolve(),
+      };
+      devServerState = state;
+
+      if (iconPath) server.watcher.add(iconPath);
 
       server.middlewares.use("/__fiber_timestamp", (_req, res) => {
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Content-Type", "text/plain");
-        res.end(String(lastBuildTimestamp));
+        res.end(String(state.lastBuildTimestamp));
       });
 
       server.httpServer?.once("listening", async () => {
         console.log("[fiber] Building extension...");
 
         try {
-          await bundleWithEsbuild(outDir, port, options.manifest);
+          await queueDevBuild(state, options);
+          state.lastBuildTimestamp = Date.now();
           console.log(
             "[fiber] Extension built. Load dist/ folder in chrome://extensions",
           );
@@ -75,30 +117,28 @@ export function fiberExtension(options: FiberOptions): Plugin {
           console.error("[fiber] Initial build failed:", err);
         }
       });
-
-      const srcDir = path.resolve("src");
-      server.watcher.on("change", async (file: string) => {
-        if (!file.startsWith(srcDir)) return;
-
-        console.log(
-          `[fiber] ${
-            path.relative(process.cwd(), file)
-          } changed, rebuilding...`,
-        );
-
-        try {
-          await bundleWithEsbuild(outDir, port, options.manifest);
-          lastBuildTimestamp = Date.now();
-          console.log("[fiber] Rebuild complete");
-        } catch (err) {
-          console.error("[fiber] Rebuild failed:", err);
-        }
-      });
     },
 
-    handleHotUpdate({ file }) {
-      const srcDir = path.resolve("src");
-      if (!file.startsWith(srcDir)) return;
+    async handleHotUpdate({ file }) {
+      const isIconUpdate = devServerState?.iconPath === path.resolve(file);
+      if (
+        !devServerState ||
+        (!file.startsWith(devServerState.srcDir) && !isIconUpdate)
+      ) {
+        return;
+      }
+
+      console.log(
+        `[fiber] ${path.relative(projectRoot, file)} changed, rebuilding...`,
+      );
+
+      try {
+        await queueDevBuild(devServerState, options);
+        devServerState.lastBuildTimestamp = Date.now();
+        console.log("[fiber] Rebuild complete");
+      } catch (err) {
+        console.error("[fiber] Rebuild failed:", err);
+      }
 
       return [];
     },
@@ -117,7 +157,7 @@ export function fiberExtension(options: FiberOptions): Plugin {
 
     load(id: string) {
       if (id === "virtual:fiber/content") {
-        return contentEntryPath();
+        return contentEntryPath(projectRoot);
       }
 
       if (id === "virtual:fiber/content-early") {
@@ -139,6 +179,8 @@ export function fiberExtension(options: FiberOptions): Plugin {
     },
 
     generateBundle() {
+      if (buildTarget !== "content") return;
+
       const manifest = buildManifest(options.manifest, isDev);
 
       this.emitFile({
@@ -148,9 +190,24 @@ export function fiberExtension(options: FiberOptions): Plugin {
       });
     },
 
-    buildStart() {
+    async buildStart() {
       if (!options.manifest) {
         this.warn("No manifest options provided. Using defaults.");
+      }
+
+      if (resolvedConfig?.command === "serve" || !options.manifest.icon) {
+        return;
+      }
+
+      const sourcePath = path.resolve(projectRoot, options.manifest.icon);
+      const icons = await generateIcons(sourcePath);
+
+      for (const [size, buffer] of icons) {
+        this.emitFile({
+          type: "asset",
+          fileName: `${ICONS_DIR}/icon-${size}.png`,
+          source: buffer,
+        });
       }
     },
 
@@ -161,110 +218,105 @@ export function fiberExtension(options: FiberOptions): Plugin {
     },
 
     async closeBundle() {
-      const outDir = resolvedConfig.build.outDir;
-      const contentPath = path.join(outDir, "content.js");
-      const backgroundPath = path.join(outDir, "background.js");
-
-      await esbuild({
-        entryPoints: [contentPath],
-        bundle: true,
-        format: "iife",
-        outfile: contentPath,
-        allowOverwrite: true,
-        minify: !isDev,
-      });
-
-      await esbuild({
-        entryPoints: [backgroundPath],
-        bundle: true,
-        format: "iife",
-        outfile: backgroundPath,
-        allowOverwrite: true,
-        minify: !isDev,
-      });
-
-      const earlyPath = path.join(outDir, "content-early.js");
-      await esbuild({
-        entryPoints: [earlyPath],
-        bundle: true,
-        format: "iife",
-        outfile: earlyPath,
-        allowOverwrite: true,
-        minify: !isDev,
-      });
-
-      const keepFiles = new Set([
-        "content.js",
-        "background.js",
-        "content-early.js",
-      ]);
-
-      const fs = await import("fs/promises");
-      const files = await fs.readdir(outDir);
-
-      for (const file of files) {
-        if (file.endsWith(".js") && !keepFiles.has(file)) {
-          await fs.unlink(path.join(outDir, file));
-        }
+      if (isDev || buildTarget !== "content" || !resolvedConfig) {
+        return;
       }
+
+      await buildExtensionEntries(resolvedConfig, options, false, [
+        "content-early",
+        "background",
+      ]);
     },
   };
 }
 
-async function bundleWithEsbuild(
-  outDir: string,
-  devServerPort: number,
-  manifestPartial: Partial<ManifestV3>,
-): Promise<void> {
-  const fs = await import("fs/promises");
-
-  await fs.mkdir(outDir, { recursive: true });
-
-  await esbuild({
-    stdin: {
-      contents: contentEntryPath(),
-      resolveDir: process.cwd(),
-      loader: "ts",
-    },
-    bundle: true,
-    format: "iife",
-    outfile: path.join(outDir, "content.js"),
-  });
-
-  await esbuild({
-    stdin: {
-      contents: earlyTrapEntryPath(),
-      resolveDir: process.cwd(),
-      loader: "ts",
-    },
-    bundle: true,
-    format: "iife",
-    outfile: path.join(outDir, "content-early.js"),
-  });
-
-  await esbuild({
-    stdin: {
-      contents: backgroundEntryPath(true, devServerPort),
-      resolveDir: process.cwd(),
-      loader: "ts",
-    },
-    bundle: true,
-    format: "iife",
-    outfile: path.join(outDir, "background.js"),
-  });
-
-  const manifest = buildManifest(manifestPartial, true);
-
-  await fs.writeFile(
-    path.join(outDir, "manifest.json"),
-    JSON.stringify(manifest, null, 2),
-  );
+interface DevServerState {
+  config: ResolvedConfig;
+  port: number;
+  srcDir: string;
+  iconPath?: string;
+  lastBuildTimestamp: number;
+  buildQueue: Promise<void>;
 }
 
-function contentEntryPath(): string {
-  const appPath = path.resolve("src/app.ts").replace(/\\/g, "/");
+function getFiberBuildRequest(
+  config: object,
+): FiberBuildRequest | undefined {
+  const request = (config as { __fiberBuild?: unknown }).__fiberBuild;
+  if (!request || typeof request !== "object") return undefined;
 
-  return `import '${appPath}';`;
+  const { target, isDev, devServerPort } = request as Partial<
+    FiberBuildRequest
+  >;
+  if (
+    (target !== "content" && target !== "content-early" &&
+      target !== "background") ||
+    typeof isDev !== "boolean" ||
+    (devServerPort !== undefined && typeof devServerPort !== "number")
+  ) {
+    return undefined;
+  }
+
+  return { target: target as FiberEntry, isDev, devServerPort };
+}
+
+function entryId(entry: FiberEntry): string {
+  return `virtual:fiber/${entry}`;
+}
+
+async function queueDevBuild(
+  state: DevServerState,
+  options: FiberOptions,
+): Promise<void> {
+  const build = state.buildQueue.then(
+    () =>
+      buildExtensionEntries(
+        state.config,
+        options,
+        true,
+        ["content", "content-early", "background"],
+        state.port,
+      ),
+  );
+
+  state.buildQueue = build.catch(() => undefined);
+  await build;
+}
+
+async function buildExtensionEntries(
+  resolvedConfig: ResolvedConfig | undefined,
+  options: FiberOptions,
+  isDev: boolean,
+  entries: FiberEntry[],
+  devServerPort?: number,
+): Promise<void> {
+  for (const target of entries) {
+    const inlineConfig: FiberInlineConfig = {
+      configFile: resolvedConfig?.configFile ?? false,
+      root: resolvedConfig?.root,
+      mode: resolvedConfig?.mode,
+      __fiberBuild: {
+        target,
+        isDev,
+        devServerPort,
+      },
+      ...(resolvedConfig?.configFile
+        ? {}
+        : { plugins: [fiberExtension(options)] }),
+    };
+
+    await viteBuild(inlineConfig);
+  }
+}
+
+function contentEntryPath(root: string): string {
+  const appPath = path.resolve(root, "src/app.ts").replace(/\\/g, "/");
+
+  // This must execute before the app imports Lit (or any other HTMLElement
+  // subclass). The custom-elements polyfill replaces window.HTMLElement, and
+  // classes extending the constructor captured before that replacement cannot
+  // be upgraded by the polyfilled registry ("Illegal constructor").
+  return `import 'fiber-extension/runtime/polyfill';\nimport '${appPath}';`;
 }
 
 function earlyTrapEntryPath(): string {

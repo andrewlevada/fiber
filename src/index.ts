@@ -1,5 +1,7 @@
-// Content scripts do not yet provide native Web Components support
-import "@webcomponents/webcomponentsjs";
+// Keep this for consumers that import Fiber without the Vite plugin. The plugin
+// also loads it before the application entry so HTMLElement is patched before
+// component libraries capture it.
+import "./runtime/polyfill.ts";
 
 export { ext } from "./runtime/ext.ts";
 export { overlay } from "./runtime/overlay.ts";

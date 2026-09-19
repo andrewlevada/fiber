@@ -1,5 +1,7 @@
 // From: https://developer.chrome.com/docs/extensions/reference/manifest#register-a-content-script
 
+import { iconManifest } from "./icons.ts";
+
 export interface ManifestV3 {
   manifest_version: 3;
   name: string;
@@ -27,8 +29,13 @@ export interface ManifestV3 {
   minimum_chrome_version?: string;
 }
 
+export type FiberManifest = Partial<ManifestV3> & {
+  /** Path to a source icon from which Fiber generates extension icons. */
+  icon?: string;
+};
+
 export function buildManifest(
-  partial: Partial<ManifestV3>,
+  partial: FiberManifest,
   isDev: boolean,
 ): ManifestV3 {
   const hostPermissions = partial.host_permissions ?? [];
@@ -58,8 +65,16 @@ export function buildManifest(
   };
 
   if (partial.description) manifest.description = partial.description;
-  if (partial.icons) manifest.icons = partial.icons;
-  manifest.action = partial.action ?? {};
+
+  const icons = partial.icon ? iconManifest() : partial.icons;
+  if (icons) manifest.icons = icons;
+
+  manifest.action = {
+    ...(partial.action ?? {}),
+    ...(partial.icon && partial.action?.default_icon === undefined
+      ? { default_icon: icons }
+      : {}),
+  };
 
   if (partial.web_accessible_resources) {
     manifest.web_accessible_resources = partial.web_accessible_resources;
