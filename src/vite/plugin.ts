@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 import process from "node:process";
 import {
   build as viteBuild,
@@ -310,13 +311,26 @@ async function buildExtensionEntries(
 }
 
 function contentEntryPath(root: string): string {
-  const appPath = path.resolve(root, "src/app.ts").replace(/\\/g, "/");
+  const paths = [
+    "index.ts",
+    "app.ts",
+    "main.ts",
+    "src/index.ts",
+    "src/app.ts",
+    "src/main.ts",
+  ].map((to) => path.resolve(root, to).replace(/\\/g, "/"));
 
-  // This must execute before the app imports Lit (or any other HTMLElement
-  // subclass). The custom-elements polyfill replaces window.HTMLElement, and
-  // classes extending the constructor captured before that replacement cannot
-  // be upgraded by the polyfilled registry ("Illegal constructor").
-  return `import 'fiber-extension/runtime/polyfill';\nimport '${appPath}';`;
+  for (const indexPath of paths) {
+    if (fs.existsSync(indexPath)) {
+      // This must execute before the app imports Lit (or any other HTMLElement
+      // subclass). The custom-elements polyfill replaces window.HTMLElement, and
+      // classes extending the constructor captured before that replacement cannot
+      // be upgraded by the polyfilled registry ("Illegal constructor").
+      return `import 'fiber-extension/runtime/polyfill';\nimport '${indexPath}';`;
+    }
+  }
+
+  throw "Can't find an entry-point file. Need index, app, or main (.ts) at root or in src/";
 }
 
 function earlyTrapEntryPath(): string {

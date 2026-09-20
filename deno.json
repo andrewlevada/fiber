@@ -18,7 +18,7 @@
   },
 
   "tasks": {
-    "build": "rm -rf dist && deno run -A npm:typescript/tsc && cp -r src/types dist/",
+    "build": "rm -rf dist && deno run -A npm:typescript/tsc",
     "typecheck": "deno check src/index.ts src/runtime/*.ts src/vite/*.ts e2e/*.ts e2e/tests/*.ts e2e/fixtures/test-extension/src/*.ts e2e/fixtures/test-extension/*.ts",
     "test:e2e": "deno run --allow-read --allow-run --allow-env e2e/run-tests.ts"
   },
