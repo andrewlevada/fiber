@@ -1,5 +1,5 @@
-import type { ExtApi } from "../types/ext.d.ts";
-import { createFetchProxy } from "./ext-fetch.ts";
+import { ExtApi } from "../index.ts";
+import { createFetchProxy } from "./fetch.ts";
 import { createRpcClient } from "./rpc.ts";
 
 export const ext = createApiProxy() as ExtApi;
